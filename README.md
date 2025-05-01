@@ -1,5 +1,7 @@
 # DhcpRouteConverter
 
+[![CI for DhcpRouteConverter](https://github.com/oldengremlin/DhcpRouteConverter/actions/workflows/ci.yml/badge.svg)](https://github.com/oldengremlin/DhcpRouteConverter/actions/workflows/ci.yml)
+
 DhcpRouteConverter is a command-line utility for converting network routes to DHCP options 121 and 249 and vice versa. It supports generating hexadecimal DHCP options from network/gateway pairs and decoding hexadecimal options back to human-readable routes. The tool is compiled into a native binary using GraalVM, making it lightweight and dependency-free on target systems.
 
 ## Features
