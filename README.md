@@ -139,6 +139,10 @@ The project uses GitHub Actions for continuous integration. Every push or pull r
 
 Check the [Actions](https://github.com/oldengremlin/DhcpRouteConverter/actions) tab for build status and artifacts.
 
+## Releases
+
+Download the latest stable version from [Releases](https://github.com/oldengremlin/DhcpRouteConverter/releases/tag/v1.0.0).
+
 ## License
 
 This project is licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for details.
