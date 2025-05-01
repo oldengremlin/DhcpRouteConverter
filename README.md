@@ -90,6 +90,17 @@ Run `DhcpRouteConverter` with the desired options and arguments. Use `-?` or `--
    ```
    Output is the same.
 
+## Testing
+
+The project includes unit tests written with JUnit 5 to ensure the reliability of the core functionality. Tests cover the `generateDhcpOptions` and `parseDhcpOptions` methods, including valid and invalid inputs.
+
+To run the tests:
+```bash
+mvn test
+```
+
+The tests are automatically executed during the build process (`mvn package`).
+
 ## Building from Source
 
 ### Prerequisites
