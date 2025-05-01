@@ -293,7 +293,7 @@ public class DhcpRouteConverter {
         return results;
     }
 
-    private static String toHex(int n) {
+    static String toHex(int n) {
         if (n == 0) {
             return "00";
         }
