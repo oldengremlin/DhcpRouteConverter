@@ -1,5 +1,7 @@
 package net.ukrcom.dhcprouteconverter;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import static org.junit.jupiter.api.Assertions.*;
@@ -9,9 +11,16 @@ import java.util.List;
 
 public class DhcpRouteConverterTest {
 
+    private final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
+    private final ByteArrayOutputStream errContent = new ByteArrayOutputStream();
+    private final PrintStream originalOut = System.out;
+    private final PrintStream originalErr = System.err;
+
     @BeforeEach
     public void setUp() {
-        // Місце для ініціалізації, якщо потрібна (наприклад, очищення стану)
+        // Перенаправляємо System.out і System.err перед кожним тестом
+        System.setOut(new PrintStream(outContent));
+        System.setErr(new PrintStream(errContent));
     }
 
     /*
@@ -132,5 +141,101 @@ public class DhcpRouteConverterTest {
 
         assertTrue(result.isEmpty(), "Should return empty list for null input");
         assertTrue(errContent.toString().contains("Invalid hex option format"), "Should print error message");
+    }
+
+    /*
+    Тести для toHex:
+        testToHex_Zero: Перевіряє, чи 0 конвертується в "00".
+        testToHex_SingleDigit: Перевіряє, чи 5 конвертується в "05".
+        testToHex_MaxByte: Перевіряє, чи 255 конвертується в "ff".
+        testToHex_MidRange: Перевіряє, чи 192 конвертується в "c0".
+     */
+    @Test
+    public void testToHex_Zero() {
+        String result = DhcpRouteConverter.toHex(0);
+        assertEquals("00", result, "Zero should convert to '00'");
+    }
+
+    @Test
+    public void testToHex_SingleDigit() {
+        String result = DhcpRouteConverter.toHex(5);
+        assertEquals("05", result, "Single digit 5 should convert to '05'");
+    }
+
+    @Test
+    public void testToHex_MaxByte() {
+        String result = DhcpRouteConverter.toHex(255);
+        assertEquals("ff", result, "255 should convert to 'ff'");
+    }
+
+    @Test
+    public void testToHex_MidRange() {
+        String result = DhcpRouteConverter.toHex(192);
+        assertEquals("c0", result, "192 should convert to 'c0'");
+    }
+
+    /*
+    Тести для main:
+        testMain_NoArguments: Перевіряє, чи викликається printHelp при відсутності аргументів.
+        testMain_HelpOption: Перевіряє, чи --help виводить довідку.
+        testMain_InvalidOption: Перевіряє, чи невалідна опція (наприклад, --invalid) видає помилку.
+        testMain_TdoMissingArguments: Перевіряє, чи -tdo без аргументів видає помилку.
+        testMain_FdoMissingArguments: Перевіряє, чи -fdo без аргументів видає помилку.
+     */
+    @Test
+    public void testMain_NoArguments() {
+        outContent.reset();
+        errContent.reset();
+        DhcpRouteConverter.main(new String[]{});
+
+        String output = outContent.toString();
+        assertTrue(output.contains("DhcpRouteConverter - A utility to convert between network routes and DHCP options 121/249."),
+                "Should print help message when no arguments provided");
+        assertTrue(output.contains("Usage:"), "Help message should include usage");
+    }
+
+    @Test
+    public void testMain_HelpOption() {
+        outContent.reset();
+        errContent.reset();
+        DhcpRouteConverter.main(new String[]{"--help"});
+
+        String output = outContent.toString();
+        assertTrue(output.contains("DhcpRouteConverter - A utility to convert between network routes and DHCP options 121/249."),
+                "Should print help message for --help");
+        assertTrue(output.contains("Options:"), "Help message should include options");
+    }
+
+    @Test
+    public void testMain_InvalidOption() {
+        outContent.reset();
+        errContent.reset();
+        DhcpRouteConverter.main(new String[]{"--invalid"});
+
+        String error = errContent.toString();
+        assertTrue(error.contains("Error: Unknown option. Use --help for usage information."),
+                "Should print error for invalid option");
+    }
+
+    @Test
+    public void testMain_TdoMissingArguments() {
+        outContent.reset();
+        errContent.reset();
+        DhcpRouteConverter.main(new String[]{"-tdo"});
+
+        String error = errContent.toString();
+        assertTrue(error.contains("Error: Missing arguments for -tdo. Use --help for usage information."),
+                "Should print error for -tdo without arguments");
+    }
+
+    @Test
+    public void testMain_FdoMissingArguments() {
+        outContent.reset();
+        errContent.reset();
+        DhcpRouteConverter.main(new String[]{"-fdo"});
+
+        String error = errContent.toString();
+        assertTrue(error.contains("Error: Missing arguments for -fdo. Use --help for usage information."),
+                "Should print error for -fdo without arguments");
     }
 }
