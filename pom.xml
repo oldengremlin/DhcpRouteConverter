@@ -5,10 +5,106 @@
     <artifactId>DhcpRouteConverter</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
+    <name>DhcpRouteConverter</name>
+    <description>A utility to convert network routes to DHCP options 121 and 249 and vice versa</description>
+    <organization>
+        <name>ukr-com</name>
+    </organization>
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+        </license>
+    </licenses>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.release>21</maven.compiler.release>
         <exec.mainClass>net.ukrcom.dhcprouteconverter.DhcpRouteConverter</exec.mainClass>
     </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.12.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.14.0</version>
+                <configuration>
+                    <release>${maven.compiler.release}</release>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <mainClass>${exec.mainClass}</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.graalvm.buildtools</groupId>
+                <artifactId>native-maven-plugin</artifactId>
+                <version>0.10.3</version>
+                <extensions>true</extensions>
+                <executions>
+                    <execution>
+                        <id>build-native</id>
+                        <goals>
+                            <goal>compile-no-fork</goal>
+                        </goals>
+                        <phase>package</phase>
+                    </execution>
+                </executions>
+                <configuration>
+                    <mainClass>${exec.mainClass}</mainClass>
+                    <imageName>${project.artifactId}</imageName>
+                    <buildArgs>
+                        <buildArg>--no-fallback</buildArg>
+                        <buildArg>-H:+ReportExceptionStackTraces</buildArg>
+                        <buildArg>--gc=G1</buildArg>
+                        <buildArg>-march=native</buildArg>
+                    </buildArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.vafer</groupId>
+                <artifactId>jdeb</artifactId>
+                <version>1.12</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jdeb</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <deb>${project.build.directory}/${project.artifactId}_${project.version}_all.deb</deb>
+                    <controlDir>${project.basedir}/src/deb/control</controlDir>
+                    <dataSet>
+                        <data>
+                            <src>${project.build.directory}/${project.artifactId}</src>
+                            <type>file</type>
+                            <dst>/usr/bin/${project.artifactId}</dst>
+                            <mapper>
+                                <type>perm</type>
+                                <filemode>755</filemode>
+                            </mapper>
+                        </data>
+                    </dataSet>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
