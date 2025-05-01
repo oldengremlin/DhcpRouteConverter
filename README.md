@@ -94,14 +94,14 @@ Run `DhcpRouteConverter` with the desired options and arguments. Use `-?` or `--
 
 ## Testing
 
-The project includes unit tests written with JUnit 5 to ensure the reliability of the core functionality. Tests cover the `generateDhcpOptions` and `parseDhcpOptions` methods, including valid and invalid inputs.
+The project includes unit tests written with JUnit 5 to ensure the reliability of the core functionality. Tests cover the `generateDhcpOptions`, `parseDhcpOptions`, `toHex`, and `main` methods, including valid and invalid inputs.
 
-To run the tests:
+To run the tests locally:
 ```bash
 mvn test
 ```
 
-The tests are automatically executed during the build process (`mvn package`).
+The tests are automatically executed during the build process (`mvn package`) and in the CI pipeline via GitHub Actions.
 
 ## Building from Source
 
@@ -129,6 +129,15 @@ The tests are automatically executed during the build process (`mvn package`).
    ```
 
 4. Find the native binary at `target/DhcpRouteConverter` and the `.deb` package at `target/DhcpRouteConverter_1.0.0_all.deb`.
+
+## Continuous Integration
+
+The project uses GitHub Actions for continuous integration. Every push or pull request to the `master` branch triggers a workflow that:
+- Runs all unit tests.
+- Builds the native binary and `.deb` package.
+- Uploads the `.deb` as an artifact.
+
+Check the [Actions](https://github.com/oldengremlin/DhcpRouteConverter/actions) tab for build status and artifacts.
 
 ## License
 
