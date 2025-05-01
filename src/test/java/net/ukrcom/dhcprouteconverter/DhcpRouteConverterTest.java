@@ -19,6 +19,8 @@ public class DhcpRouteConverterTest {
     @BeforeEach
     public void setUp() {
         // Перенаправляємо System.out і System.err перед кожним тестом
+        outContent.reset();
+        errContent.reset();
         System.setOut(new PrintStream(outContent));
         System.setErr(new PrintStream(errContent));
     }
