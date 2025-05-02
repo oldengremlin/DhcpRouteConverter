@@ -2,7 +2,7 @@
 
 [![CI for DhcpRouteConverter](https://github.com/oldengremlin/DhcpRouteConverter/actions/workflows/ci.yml/badge.svg)](https://github.com/oldengremlin/DhcpRouteConverter/actions/workflows/ci.yml)
 
-DhcpRouteConverter is a command-line utility for converting network routes to DHCP options 121 and 249 and vice versa. It supports generating hexadecimal DHCP options from network/gateway pairs and decoding hexadecimal options back to human-readable routes. The tool is compiled into a native binary using GraalVM, making it lightweight and dependency-free on target systems.
+DhcpRouteConverter is a command-line utility for converting network routes to DHCP options 121 and 249 and vice versa. It supports generating hexadecimal DHCP options from network/gateway pairs, decoding hexadecimal options back to human-readable routes, and generating configuration snippets for popular DHCP servers. The tool is compiled into a native binary using GraalVM, making it lightweight and dependency-free on target systems.
 
 ## Features
 
@@ -10,6 +10,10 @@ DhcpRouteConverter is a command-line utility for converting network routes to DH
 - Decode hexadecimal DHCP options (e.g., `0x18c0a801c0a80001`) to network routes.
 - Support for optional `0x` prefix in hexadecimal input.
 - Debug mode (`-d`) to display individual route options.
+- Generate configuration snippets for:
+  - `isc-dhcp-server` (with `--isc`).
+  - MikroTik RouterOS (with `--routeros`).
+  - Juniper JunOS (with `--junos`).
 - Distributed as a `.deb` package for easy installation on Debian-based systems.
 - Native binary with no Java runtime dependency.
 
@@ -40,8 +44,11 @@ Run `DhcpRouteConverter` with the desired options and arguments. Use `-?` or `--
 
 ### Options
 
-- `--to-dhcp-options`, `-tdo [-d] <network1,gateway1,network2,gateway2,...>`  
-  Convert a comma-separated list of network/gateway pairs to DHCP options. Use `-d` to display individual route options.
+- `--to-dhcp-options`, `-tdo [-d] [--isc | --routeros | --junos] <network1,gateway1,network2,gateway2,...>`  
+  Convert a comma-separated list of network/gateway pairs to DHCP options.  
+  Use `-d` to display individual route options.  
+  Use `--isc` for isc-dhcp-server format, `--routeros` for MikroTik RouterOS, or `--junos` for Juniper JunOS.  
+  Default output is `aggregate_opt_121/249` hex strings.
 - `--from-dhcp-options`, `-fdo <hex-option>`  
   Decode a hexadecimal DHCP option string to network/gateway pairs. Supports `0x` prefix.
 - `--help`, `-?`  
@@ -49,7 +56,7 @@ Run `DhcpRouteConverter` with the desired options and arguments. Use `-?` or `--
 
 ### Examples
 
-1. **Convert network routes to DHCP options**:
+1. **Convert network routes to default DHCP options**:
    ```bash
    DhcpRouteConverter -tdo 192.168.0.0/16,127.0.0.192,172.16.0.0/12,127.0.0.172,10.0.0.0/8,127.0.0.10
    ```
@@ -61,40 +68,60 @@ Run `DhcpRouteConverter` with the desired options and arguments. Use `-?` or `--
 
 2. **Convert with debug output**:
    ```bash
-   DhcpRouteConverter -tdo -d 192.168.0.0/16,127.0.0.192,172.16.0.0/12,127.0.0.172,10.0.0.0/8,127.0.0.10
+   DhcpRouteConverter -tdo -d 192.168.0.0/16,127.0.0.192
    ```
    Output:
    ```
    option_121_route_192.168.0.0/16_via_127.0.0.192 : 0x10c0a87f0000c0
    option_249_route_192.168.0.0/16_via_127.0.0.192 : 0x10c0a87f0000c0
-   option_121_route_172.16.0.0/12_via_127.0.0.172 : 0x0cac107f0000ac
-   option_249_route_172.16.0.0/12_via_127.0.0.172 : 0x0cac107f0000ac
-   option_121_route_10.0.0.0/8_via_127.0.0.10 : 0x080a7f00000a
-   option_249_route_10.0.0.0/8_via_127.0.0.10 : 0x080a7f00000a
-   aggregate_opt_121 : 0x10c0a87f0000c00cac107f0000ac080a7f00000a
-   aggregate_opt_249 : 0x10c0a87f0000c00cac107f0000ac080a7f00000a
+   aggregate_opt_121 : 0x10c0a87f0000c0
+   aggregate_opt_249 : 0x10c0a87f0000c0
    ```
 
-3. **Decode DHCP options to routes**:
+3. **Convert to isc-dhcp-server format**:
    ```bash
-   DhcpRouteConverter -fdo 0x10c0a87f0000c00cac107f0000ac080a7f00000a
+   DhcpRouteConverter -tdo --isc 192.168.0.0/16,127.0.0.192
+   ```
+   Output:
+   ```
+   option rfc3442-classless-static-routes code 121 = array of unsigned integer 8;
+   option rfc3442-classless-static-routes 16,192,168,127,0,0,192;
+   option ms-classless-static-routes code 249 = array of unsigned integer 8;
+   option ms-classless-static-routes 16,192,168,127,0,0,192;
+   ```
+
+4. **Convert to MikroTik RouterOS format**:
+   ```bash
+   DhcpRouteConverter -tdo --routeros 192.168.0.0/16,127.0.0.192
+   ```
+   Output:
+   ```
+   /ip dhcp-server option add code=121 name=aggregate_opt_121 value=0x10c0a87f0000c0
+   /ip dhcp-server option add code=249 name=aggregate_opt_249 value=0x10c0a87f0000c0
+   ```
+
+5. **Convert to Juniper JunOS format**:
+   ```bash
+   DhcpRouteConverter -tdo --junos 192.168.0.0/16,127.0.0.192
+   ```
+   Output:
+   ```
+   set access address-assignment pool lan-pool family inet dhcp-attributes option 121 hex-string 10c0a87f0000c0
+   set access address-assignment pool lan-pool family inet dhcp-attributes option 249 hex-string 10c0a87f0000c0
+   ```
+
+6. **Decode DHCP options to routes**:
+   ```bash
+   DhcpRouteConverter -fdo 0x10c0a87f0000c0
    ```
    Output:
    ```
    192.168.0.0/16 via 127.0.0.192
-   172.16.0.0/12 via 127.0.0.172
-   10.0.0.0/8 via 127.0.0.10
    ```
-
-   Without `0x` prefix:
-   ```bash
-   DhcpRouteConverter -fdo 10c0a87f0000c00cac107f0000ac080a7f00000a
-   ```
-   Output is the same.
 
 ## Testing
 
-The project includes unit tests written with JUnit 5 to ensure the reliability of the core functionality. Tests cover the `generateDhcpOptions`, `parseDhcpOptions`, `toHex`, and `main` methods, including valid and invalid inputs.
+The project includes unit tests written with JUnit 5 to ensure the reliability of the core functionality. Tests cover the `generateDhcpOptions`, `parseDhcpOptions`, `toHex`, and `main` methods, including valid and invalid inputs, as well as format-specific outputs for isc-dhcp-server, MikroTik RouterOS, and Juniper JunOS.
 
 To run the tests locally:
 ```bash
@@ -138,10 +165,6 @@ The project uses GitHub Actions for continuous integration. Every push or pull r
 - Uploads the `.deb` as an artifact.
 
 Check the [Actions](https://github.com/oldengremlin/DhcpRouteConverter/actions) tab for build status and artifacts.
-
-## Releases
-
-Download the latest stable version from [Releases](https://github.com/oldengremlin/DhcpRouteConverter/releases/tag/v1.0.0).
 
 ## License
 
