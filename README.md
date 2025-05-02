@@ -33,10 +33,9 @@ DhcpRouteConverter is a command-line utility for converting network routes to DH
 
 The binary will be installed to `/usr/bin/DhcpRouteConverter`.
 
-### Requirements
-
-- Debian-based system (e.g., Ubuntu, Debian).
-- `libc` (standard C library, typically pre-installed).
+## Requirements
+- CPU: Any 64-bit x86-64 processor (Intel Pentium 4, AMD Athlon 64, or newer; 2003+).
+- OS: Linux (tested on Ubuntu/Debian).
 
 ## Usage
 
