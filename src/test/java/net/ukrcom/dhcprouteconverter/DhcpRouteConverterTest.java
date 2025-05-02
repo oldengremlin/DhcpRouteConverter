@@ -30,7 +30,7 @@ public class DhcpRouteConverterTest {
         List<String> gateways = Collections.singletonList("127.0.0.192");
         boolean debug = false;
 
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.DEFAULT, "lan-pool");
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.DEFAULT, "lan-pool", "mypool");
 
         assertEquals(2, result.size(), "Should return two options (121 and 249)");
         assertEquals("aggregate_opt_121 : 0x10c0a87f0000c0", result.get(0), "Option 121 should match");
@@ -43,7 +43,7 @@ public class DhcpRouteConverterTest {
         List<String> gateways = Arrays.asList("127.0.0.192", "127.0.0.172", "127.0.0.10");
         boolean debug = false;
 
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.DEFAULT, "lan-pool");
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.DEFAULT, "lan-pool", "mypool");
 
         assertEquals(2, result.size(), "Should return two options (121 and 249)");
         assertEquals("aggregate_opt_121 : 0x10c0a87f0000c00cac107f0000ac080a7f00000a", result.get(0), "Option 121 should match");
@@ -56,7 +56,7 @@ public class DhcpRouteConverterTest {
         List<String> gateways = Collections.singletonList("127.0.0.192");
         boolean debug = false;
 
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.DEFAULT, "lan-pool");
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.DEFAULT, "lan-pool", "mypool");
 
         assertTrue(result.isEmpty(), "Should return empty list for invalid network format");
         assertTrue(errContent.toString().contains("Invalid network format: 192.168.0.0"), "Should print error message");
@@ -68,7 +68,7 @@ public class DhcpRouteConverterTest {
         List<String> gateways = Collections.singletonList("127.0.0.192");
         boolean debug = true;
 
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.DEFAULT, "lan-pool");
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.DEFAULT, "lan-pool", "mypool");
 
         String output = outContent.toString();
         assertEquals(2, result.size(), "Should return two options (121 and 249)");
@@ -84,7 +84,7 @@ public class DhcpRouteConverterTest {
         List<String> gateways = Collections.singletonList("127.0.0.192");
         boolean debug = false;
 
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.ISC, "lan-pool");
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.ISC, "lan-pool", "mypool");
 
         assertEquals(4, result.size(), "Should return four lines for isc format");
         assertEquals("option rfc3442-classless-static-routes code 121 = array of unsigned integer 8;", result.get(0));
@@ -99,7 +99,7 @@ public class DhcpRouteConverterTest {
         List<String> gateways = Collections.singletonList("127.0.0.192");
         boolean debug = false;
 
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.ROUTEROS, "lan-pool");
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.ROUTEROS, "lan-pool", "mypool");
 
         assertEquals(2, result.size(), "Should return two lines for routeros format");
         assertEquals("/ip dhcp-server option add code=121 name=aggregate_opt_121 value=0x10c0a87f0000c0", result.get(0));
@@ -112,7 +112,7 @@ public class DhcpRouteConverterTest {
         List<String> gateways = Collections.singletonList("127.0.0.192");
         boolean debug = false;
 
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.JUNOS, "vlan100-pool");
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.JUNOS, "vlan100-pool", "mypool");
 
         assertEquals(2, result.size(), "Should return two lines for junos format");
         assertEquals("set access address-assignment pool vlan100-pool family inet dhcp-attributes option 121 hex-string 10c0a87f0000c0", result.get(0));
@@ -120,15 +120,29 @@ public class DhcpRouteConverterTest {
     }
 
     @Test
-    public void testGenerateDhcpOptions_CiscoFormat() {
+    public void testGenerateDhcpOptions_CiscoFormat_DefaultPool() {
         List<String> networks = Collections.singletonList("192.168.0.0/16");
         List<String> gateways = Collections.singletonList("127.0.0.192");
         boolean debug = false;
 
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.CISCO, "lan-pool");
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.CISCO, "lan-pool", "mypool");
 
         assertEquals(3, result.size(), "Should return three lines for cisco format");
         assertEquals("ip dhcp pool mypool", result.get(0));
+        assertEquals(" option 121 hex 10c0a87f0000c0", result.get(1));
+        assertEquals(" option 249 hex 10c0a87f0000c0", result.get(2));
+    }
+
+    @Test
+    public void testGenerateDhcpOptions_CiscoFormat_CustomPool() {
+        List<String> networks = Collections.singletonList("192.168.0.0/16");
+        List<String> gateways = Collections.singletonList("127.0.0.192");
+        boolean debug = false;
+
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.CISCO, "lan-pool", "custom-pool");
+
+        assertEquals(3, result.size(), "Should return three lines for cisco format");
+        assertEquals("ip dhcp pool custom-pool", result.get(0));
         assertEquals(" option 121 hex 10c0a87f0000c0", result.get(1));
         assertEquals(" option 249 hex 10c0a87f0000c0", result.get(2));
     }
@@ -139,7 +153,7 @@ public class DhcpRouteConverterTest {
         List<String> gateways = Collections.singletonList("127.0.0.192");
         boolean debug = false;
 
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.WINDOWS, "lan-pool");
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, DhcpRouteConverter.Format.WINDOWS, "lan-pool", "mypool");
 
         assertEquals(2, result.size(), "Should return two lines for windows format");
         assertEquals("Set-DhcpServerv4OptionValue -OptionId 121 -Value 0x10c0a87f0000c0", result.get(0));
@@ -281,7 +295,7 @@ public class DhcpRouteConverterTest {
     public void testMain_MutuallyExclusiveFormats() {
         outContent.reset();
         errContent.reset();
-        DhcpRouteConverter.main(new String[]{"-tdo", "--isc", "--junos", "192.168.0.0/16,127.0.0.192"});
+        DhcpRouteConverter.main(new String[]{"-tdo", "--isc", "--cisco", "192.168.0.0/16,127.0.0.192"});
 
         String error = errContent.toString();
         assertTrue(error.contains("Error: Only one format can be specified (--isc, --routeros, --junos, --cisco, --windows)."),
@@ -299,5 +313,35 @@ public class DhcpRouteConverterTest {
                 "Should use custom JunOS pool name");
         assertTrue(output.contains("set access address-assignment pool vlan100-pool family inet dhcp-attributes option 249 hex-string 10c0a87f0000c0"),
                 "Should use custom JunOS pool name for option 249");
+    }
+
+    @Test
+    public void testMain_CiscoDefaultPool() {
+        outContent.reset();
+        errContent.reset();
+        DhcpRouteConverter.main(new String[]{"-tdo", "--cisco", "192.168.0.0/16,127.0.0.192"});
+
+        String output = outContent.toString();
+        assertTrue(output.contains("ip dhcp pool mypool"),
+                "Should use default Cisco pool name");
+        assertTrue(output.contains(" option 121 hex 10c0a87f0000c0"),
+                "Should include option 121");
+        assertTrue(output.contains(" option 249 hex 10c0a87f0000c0"),
+                "Should include option 249");
+    }
+
+    @Test
+    public void testMain_CiscoCustomPool() {
+        outContent.reset();
+        errContent.reset();
+        DhcpRouteConverter.main(new String[]{"-tdo", "--cisco=custom-pool", "192.168.0.0/16,127.0.0.192"});
+
+        String output = outContent.toString();
+        assertTrue(output.contains("ip dhcp pool custom-pool"),
+                "Should use custom Cisco pool name");
+        assertTrue(output.contains(" option 121 hex 10c0a87f0000c0"),
+                "Should include option 121");
+        assertTrue(output.contains(" option 249 hex 10c0a87f0000c0"),
+                "Should include option 249");
     }
 }
