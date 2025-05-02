@@ -37,6 +37,9 @@ The binary will be installed to `/usr/bin/DhcpRouteConverter`.
 - CPU: Any 64-bit x86-64 processor (Intel Pentium 4, AMD Athlon 64, or newer; 2003+).
 - OS: Linux (tested on Ubuntu/Debian).
 
+## Releases
+- **v1.1.0**: Improved CPU compatibility with -march=x86-64, fixed GitHub Actions, and test improvements.
+
 ## Usage
 
 Run `DhcpRouteConverter` with the desired options and arguments. Use `-?` or `--help` to display the help message.
