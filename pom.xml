@@ -50,7 +50,6 @@
                             <mainClass>${exec.mainClass}</mainClass>
                         </manifest>
                     </archive>
-                    <!-- Explicitly set the main artifact -->
                     <outputDirectory>${project.build.directory}</outputDirectory>
                     <finalName>${project.artifactId}</finalName>
                 </configuration>
@@ -108,6 +107,9 @@
                 <configuration>
                     <deb>${project.build.directory}/${project.artifactId}_${project.version}_all.deb</deb>
                     <controlDir>${project.basedir}/src/deb/control</controlDir>
+                    <variables>
+                        <version>${project.version}</version>
+                    </variables>
                     <dataSet>
                         <data>
                             <src>${project.build.directory}/${project.artifactId}</src>
@@ -126,7 +128,6 @@
                 <artifactId>maven-install-plugin</artifactId>
                 <version>3.1.1</version>
                 <configuration>
-                    <!-- Ensure the main artifact is the JAR -->
                     <file>${project.build.directory}/${project.artifactId}-${project.version}.jar</file>
                 </configuration>
             </plugin>

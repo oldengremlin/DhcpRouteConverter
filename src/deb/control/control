@@ -1,7 +1,7 @@
 Package: dhcp-route-converter
-Version: 1.2.0
+Version: [[version]]
 Section: utils
 Priority: optional
 Architecture: all
-Maintainer: ukr-com <support@ukr-com.net>
+Maintainer: RAP22-RIPE <olden@ukr-com.net>
 Description: A utility to convert network routes to DHCP options 121/249 and vice versa
