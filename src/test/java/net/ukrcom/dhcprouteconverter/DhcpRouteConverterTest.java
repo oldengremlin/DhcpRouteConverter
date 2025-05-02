@@ -30,6 +30,9 @@ public class DhcpRouteConverterTest {
         testGenerateDhcpOptions_ValidSingleRoute: Перевіряє генерацію для однієї пари (наприклад, 192.168.0.0/16,127.0.0.192).
         testGenerateDhcpOptions_MultipleRoutes: Перевіряє генерацію для кількох маршрутів (як у твоїх прикладах).
         testGenerateDhcpOptions_InvalidNetworkFormat: Перевіряє обробку невалідного формату мережі (без /mask).
+        testGenerateDhcpOptions_IscFormat: Перевіряє вивід для --isc.
+        testGenerateDhcpOptions_RouterOsFormat: Перевіряє вивід для --routeros.
+        testGenerateDhcpOptions_JunosFormat: Перевіряє вивід для --junos.
      */
     @Test
     public void testGenerateDhcpOptions_ValidSingleRoute() {
@@ -37,7 +40,7 @@ public class DhcpRouteConverterTest {
         List<String> gateways = Collections.singletonList("127.0.0.192");
         boolean debug = false;
 
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug);
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, null);
 
         assertEquals(2, result.size(), "Should return two options (121 and 249)");
         assertEquals("aggregate_opt_121 : 0x10c0a87f0000c0", result.get(0), "Option 121 should match");
@@ -50,7 +53,7 @@ public class DhcpRouteConverterTest {
         List<String> gateways = Arrays.asList("127.0.0.192", "127.0.0.172", "127.0.0.10");
         boolean debug = false;
 
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug);
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, null);
 
         assertEquals(2, result.size(), "Should return two options (121 and 249)");
         assertEquals("aggregate_opt_121 : 0x10c0a87f0000c00cac107f0000ac080a7f00000a", result.get(0), "Option 121 should match");
@@ -63,16 +66,67 @@ public class DhcpRouteConverterTest {
         List<String> gateways = Collections.singletonList("127.0.0.192");
         boolean debug = false;
 
-        // Перенаправляємо System.err для перевірки повідомлення про помилку
-        java.io.ByteArrayOutputStream errContent = new java.io.ByteArrayOutputStream();
-        System.setErr(new java.io.PrintStream(errContent));
-
-        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug);
-
-        System.setErr(System.err); // Відновлюємо System.err
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, null);
 
         assertTrue(result.isEmpty(), "Should return empty list for invalid network format");
         assertTrue(errContent.toString().contains("Invalid network format: 192.168.0.0"), "Should print error message");
+    }
+
+    @Test
+    public void testGenerateDhcpOptions_DebugOutput() {
+        List<String> networks = Collections.singletonList("192.168.0.0/16");
+        List<String> gateways = Collections.singletonList("127.0.0.192");
+        boolean debug = true;
+
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, null);
+
+        String output = outContent.toString();
+        assertEquals(2, result.size(), "Should return two options (121 and 249)");
+        assertTrue(output.contains("option_121_route_192.168.0.0/16_via_127.0.0.192 : 0x10c0a87f0000c0"),
+                "Should print debug output for option 121");
+        assertTrue(output.contains("option_249_route_192.168.0.0/16_via_127.0.0.192 : 0x10c0a87f0000c0"),
+                "Should print debug output for option 249");
+    }
+
+    @Test
+    public void testGenerateDhcpOptions_IscFormat() {
+        List<String> networks = Collections.singletonList("192.168.0.0/16");
+        List<String> gateways = Collections.singletonList("127.0.0.192");
+        boolean debug = false;
+
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, "--isc");
+
+        assertEquals(4, result.size(), "Should return four lines for isc format");
+        assertEquals("option rfc3442-classless-static-routes code 121 = array of unsigned integer 8;", result.get(0));
+        assertEquals("option ms-classless-static-routes code 249 = array of unsigned integer 8;", result.get(1));
+        assertEquals("option rfc3442-classless-static-routes 16,192,168,127,0,0,192;", result.get(2));
+        assertEquals("option ms-classless-static-routes 16,192,168,127,0,0,192;", result.get(3));
+    }
+
+    @Test
+    public void testGenerateDhcpOptions_RouterOsFormat() {
+        List<String> networks = Collections.singletonList("192.168.0.0/16");
+        List<String> gateways = Collections.singletonList("127.0.0.192");
+        boolean debug = false;
+
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, "--routeros");
+
+        assertEquals(2, result.size(), "Should return two lines for routeros format");
+        assertEquals("/ip dhcp-server option add code=121 name=aggregate_opt_121 value=0x10c0a87f0000c0", result.get(0));
+        assertEquals("/ip dhcp-server option add code=249 name=aggregate_opt_249 value=0x10c0a87f0000c0", result.get(1));
+    }
+
+    @Test
+    public void testGenerateDhcpOptions_JunosFormat() {
+        List<String> networks = Collections.singletonList("192.168.0.0/16");
+        List<String> gateways = Collections.singletonList("127.0.0.192");
+        boolean debug = false;
+
+        List<String> result = DhcpRouteConverter.generateDhcpOptions(networks, gateways, debug, "--junos");
+
+        assertEquals(2, result.size(), "Should return two lines for junos format");
+        assertEquals("set access address-assignment pool lan-pool family inet dhcp-attributes option 121 hex-string 10c0a87f0000c0", result.get(0));
+        assertEquals("set access address-assignment pool lan-pool family inet dhcp-attributes option 249 hex-string 10c0a87f0000c0", result.get(1));
     }
 
     /*
@@ -118,10 +172,6 @@ public class DhcpRouteConverterTest {
     @Test
     public void testParseDhcpOptions_InvalidHexFormat() {
         String hexOption = "invalid_hex";
-
-        // Перенаправляємо System.err для перевірки повідомлення про помилку
-        java.io.ByteArrayOutputStream errContent = new java.io.ByteArrayOutputStream();
-        System.setErr(new java.io.PrintStream(errContent));
 
         List<String> result = DhcpRouteConverter.parseDhcpOptions(hexOption);
 
