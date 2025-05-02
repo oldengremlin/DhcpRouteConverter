@@ -54,17 +54,19 @@ public class DhcpRouteConverter {
         String input = null;
         Format format = Format.DEFAULT;
         String junosPoolName = "lan-pool"; // Default pool name for JunOS
+        String ciscoPoolName = "mypool";  // Default pool name for Cisco
         switch (option) {
-            case "--to-dhcp-options":
-            case "-tdo":
+            case "--to-dhcp-options", "-tdo" -> {
                 if (args.length < 2) {
                     System.err.println("Error: Missing arguments for -tdo. Use --help for usage information.");
                     return;
-                }   int argIndex = 1;
+                }
+                int argIndex = 1;
                 if (args.length > argIndex && args[argIndex].equals("-d")) {
                     debug = true;
                     argIndex++;
-                }   // Check for format arguments
+                }
+                // Check for format arguments
                 List<String> formatArgs = Arrays.asList("--isc", "--routeros", "--junos", "--cisco", "--windows");
                 String formatArg = null;
                 if (args.length > argIndex && formatArgs.contains(args[argIndex])) {
@@ -78,12 +80,22 @@ public class DhcpRouteConverter {
                         return;
                     }
                     argIndex++;
-                }   // Validate mutual exclusivity of format arguments
-                long formatCount = Arrays.stream(args).filter(arg -> formatArgs.contains(arg) || arg.startsWith("--junos=")).count();
+                } else if (args.length > argIndex && args[argIndex].startsWith("--cisco=")) {
+                    formatArg = "--cisco";
+                    ciscoPoolName = args[argIndex].substring("--cisco=".length());
+                    if (ciscoPoolName.isEmpty()) {
+                        System.err.println("Error: Cisco pool name cannot be empty.");
+                        return;
+                    }
+                    argIndex++;
+                }
+                // Validate mutual exclusivity of format arguments
+                long formatCount = Arrays.stream(args).filter(arg -> formatArgs.contains(arg) || arg.startsWith("--junos=") || arg.startsWith("--cisco=")).count();
                 if (formatCount > 1) {
                     System.err.println("Error: Only one format can be specified (--isc, --routeros, --junos, --cisco, --windows).");
                     return;
-                }   if (formatArg != null) {
+                }
+                if (formatArg != null) {
                     switch (formatArg) {
                         case "--isc" ->
                             format = Format.ISC;
@@ -96,21 +108,24 @@ public class DhcpRouteConverter {
                         case "--windows" ->
                             format = Format.WINDOWS;
                     }
-                }   if (args.length <= argIndex) {
+                }
+                if (args.length <= argIndex) {
                     System.err.println("Error: Missing input for -tdo. Use --help for usage information.");
                     return;
-                }   input = args[argIndex];
-                break;
-            case "--from-dhcp-options":
-            case "-fdo":
+                }
+                input = args[argIndex];
+            }
+            case "--from-dhcp-options", "-fdo" -> {
                 if (args.length < 2) {
                     System.err.println("Error: Missing arguments for -fdo. Use --help for usage information.");
                     return;
-                }   input = args[1];
-                break;
-            default:
+                }
+                input = args[1];
+            }
+            default -> {
                 System.err.println("Error: Unknown option. Use --help for usage information.");
                 return;
+            }
         }
 
         // TODO: Add IPv6 support in future versions (e.g., --to-dhcpv6-options)
@@ -128,7 +143,7 @@ public class DhcpRouteConverter {
                 gateways.add(pairs[i + 1]);
             }
 
-            List<String> dhcpOptions = generateDhcpOptions(networks, gateways, debug, format, junosPoolName);
+            List<String> dhcpOptions = generateDhcpOptions(networks, gateways, debug, format, junosPoolName, ciscoPoolName);
             for (String dhcpOption : dhcpOptions) {
                 System.out.println(dhcpOption);
             }
@@ -147,12 +162,13 @@ public class DhcpRouteConverter {
         System.out.println("  DhcpRouteConverter [OPTION] [ARGUMENT]");
         System.out.println();
         System.out.println("Options:");
-        System.out.println("  --to-dhcp-options, -tdo [-d] [--isc | --routeros | --junos[=pool-name] | --cisco | --windows] <network1,gateway1,network2,gateway2,...>");
+        System.out.println("  --to-dhcp-options, -tdo [-d] [--isc | --routeros | --junos[=pool-name] | --cisco[=pool-name] | --windows] <network1,gateway1,network2,gateway2,...>");
         System.out.println("      Convert a comma-separated list of network/gateway pairs to DHCP options.");
         System.out.println("      Use -d to display individual route options.");
         System.out.println("      Use --isc for isc-dhcp-server, --routeros for MikroTik RouterOS, --junos for Juniper JunOS,");
         System.out.println("      --cisco for Cisco IOS, or --windows for Windows DHCP (PowerShell).");
         System.out.println("      For JunOS, optionally specify pool-name (default: lan-pool) with --junos=pool-name.");
+        System.out.println("      For Cisco, optionally specify pool-name (default: mypool) with --cisco=pool-name.");
         System.out.println("      Default output is aggregate_opt_121/249 hex strings.");
         System.out.println("      Example: 192.168.1.0/24,192.168.0.1,10.0.0.0/8,10.0.0.1");
         System.out.println();
@@ -168,7 +184,7 @@ public class DhcpRouteConverter {
         System.out.println("  DhcpRouteConverter -tdo -d --isc 192.168.1.0/24,192.168.0.1");
         System.out.println("  DhcpRouteConverter -tdo --routeros 192.168.1.0/24,192.168.0.1");
         System.out.println("  DhcpRouteConverter -tdo --junos=vlan100-pool 192.168.1.0/24,192.168.0.1");
-        System.out.println("  DhcpRouteConverter -tdo --cisco 192.168.1.0/24,192.168.0.1");
+        System.out.println("  DhcpRouteConverter -tdo --cisco=custom-pool 192.168.1.0/24,192.168.0.1");
         System.out.println("  DhcpRouteConverter -tdo --windows 192.168.1.0/24,192.168.0.1");
         System.out.println("  DhcpRouteConverter -fdo 18c0a801c0a80001");
     }
@@ -181,9 +197,10 @@ public class DhcpRouteConverter {
      * @param debug If true, print individual route options
      * @param format Output format
      * @param junosPoolName Pool name for JunOS format
+     * @param ciscoPoolName Pool name for Cisco format
      * @return List of formatted DHCP options
      */
-    public static List<String> generateDhcpOptions(List<String> networks, List<String> gateways, boolean debug, Format format, String junosPoolName) {
+    public static List<String> generateDhcpOptions(List<String> networks, List<String> gateways, boolean debug, Format format, String junosPoolName, String ciscoPoolName) {
         List<String> results = new ArrayList<>();
         StringBuilder aggregateHex = new StringBuilder();
 
@@ -263,24 +280,12 @@ public class DhcpRouteConverter {
 
         // Generate output based on format
         switch (format) {
-            case DEFAULT:
-                results.addAll(formatDefault(aggregateHex.toString()));
-                break;
-            case ISC:
-                results.addAll(formatIsc(maskList, destinationList, routerList));
-                break;
-            case ROUTEROS:
-                results.addAll(formatRouterOs(aggregateHex.toString()));
-                break;
-            case JUNOS:
-                results.addAll(formatJunos(aggregateHex.toString(), junosPoolName));
-                break;
-            case CISCO:
-                results.addAll(formatCisco(aggregateHex.toString()));
-                break;
-            case WINDOWS:
-                results.addAll(formatWindows(aggregateHex.toString()));
-                break;
+            case DEFAULT -> results.addAll(formatDefault(aggregateHex.toString()));
+            case ISC -> results.addAll(formatIsc(maskList, destinationList, routerList));
+            case ROUTEROS -> results.addAll(formatRouterOs(aggregateHex.toString()));
+            case JUNOS -> results.addAll(formatJunos(aggregateHex.toString(), junosPoolName));
+            case CISCO -> results.addAll(formatCisco(aggregateHex.toString(), ciscoPoolName));
+            case WINDOWS -> results.addAll(formatWindows(aggregateHex.toString()));
         }
 
         return results;
@@ -374,11 +379,12 @@ public class DhcpRouteConverter {
      * Formats DHCP options for Cisco IOS.
      *
      * @param aggregateHex The aggregated hex string for all routes
+     * @param poolName The name of the DHCP pool
      * @return List of formatted strings for Cisco IOS configuration
      */
-    private static List<String> formatCisco(String aggregateHex) {
+    private static List<String> formatCisco(String aggregateHex, String poolName) {
         List<String> results = new ArrayList<>();
-        results.add("ip dhcp pool mypool");
+        results.add(String.format("ip dhcp pool %s", poolName));
         results.add(String.format(" option 121 hex %s", aggregateHex));
         results.add(String.format(" option 249 hex %s", aggregateHex));
         return results;

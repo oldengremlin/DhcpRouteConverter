@@ -50,6 +50,9 @@
                             <mainClass>${exec.mainClass}</mainClass>
                         </manifest>
                     </archive>
+                    <!-- Explicitly set the main artifact -->
+                    <outputDirectory>${project.build.directory}</outputDirectory>
+                    <finalName>${project.artifactId}</finalName>
                 </configuration>
             </plugin>
             <plugin>
@@ -116,6 +119,15 @@
                             </mapper>
                         </data>
                     </dataSet>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <version>3.1.1</version>
+                <configuration>
+                    <!-- Ensure the main artifact is the JAR -->
+                    <file>${project.build.directory}/${project.artifactId}-${project.version}.jar</file>
                 </configuration>
             </plugin>
         </plugins>
