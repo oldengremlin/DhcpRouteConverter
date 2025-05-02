@@ -42,17 +42,27 @@ public class DhcpRouteConverter {
 
         boolean debug = false;
         String input = null;
+        String format = null;
+
         if (option.equals("--to-dhcp-options") || option.equals("-tdo")) {
             if (args.length < 2) {
                 System.err.println("Error: Missing arguments for -tdo. Use --help for usage information.");
                 return;
             }
-            if (args.length > 2 && args[1].equals("-d")) {
+            int argIndex = 1;
+            if (args.length > argIndex && args[argIndex].equals("-d")) {
                 debug = true;
-                input = args[2];
-            } else {
-                input = args[1];
+                argIndex++;
             }
+            if (args.length > argIndex && (args[argIndex].equals("--isc") || args[argIndex].equals("--routeros") || args[argIndex].equals("--junos"))) {
+                format = args[argIndex];
+                argIndex++;
+            }
+            if (args.length <= argIndex) {
+                System.err.println("Error: Missing input for -tdo. Use --help for usage information.");
+                return;
+            }
+            input = args[argIndex];
         } else if (option.equals("--from-dhcp-options") || option.equals("-fdo")) {
             if (args.length < 2) {
                 System.err.println("Error: Missing arguments for -fdo. Use --help for usage information.");
@@ -78,7 +88,7 @@ public class DhcpRouteConverter {
                 gateways.add(pairs[i + 1]);
             }
 
-            List<String> dhcpOptions = generateDhcpOptions(networks, gateways, debug);
+            List<String> dhcpOptions = generateDhcpOptions(networks, gateways, debug, format);
             for (String dhcpOption : dhcpOptions) {
                 System.out.println(dhcpOption);
             }
@@ -97,9 +107,11 @@ public class DhcpRouteConverter {
         System.out.println("  DhcpRouteConverter [OPTION] [ARGUMENT]");
         System.out.println();
         System.out.println("Options:");
-        System.out.println("  --to-dhcp-options, -tdo [-d] <network1,gateway1,network2,gateway2,...>");
+        System.out.println("  --to-dhcp-options, -tdo [-d] [--isc | --routeros | --junos] <network1,gateway1,network2,gateway2,...>");
         System.out.println("      Convert a comma-separated list of network/gateway pairs to DHCP options.");
         System.out.println("      Use -d to display individual route options.");
+        System.out.println("      Use --isc for isc-dhcp-server format, --routeros for MikroTik RouterOS, or --junos for Juniper JunOS.");
+        System.out.println("      Default output is aggregate_opt_121/249 hex strings.");
         System.out.println("      Example: 192.168.1.0/24,192.168.0.1,10.0.0.0/8,10.0.0.1");
         System.out.println();
         System.out.println("  --from-dhcp-options, -fdo <hex-option>");
@@ -111,7 +123,9 @@ public class DhcpRouteConverter {
         System.out.println();
         System.out.println("Examples:");
         System.out.println("  DhcpRouteConverter -tdo 192.168.1.0/24,192.168.0.1");
-        System.out.println("  DhcpRouteConverter -tdo -d 192.168.1.0/24,192.168.0.1");
+        System.out.println("  DhcpRouteConverter -tdo -d --isc 192.168.1.0/24,192.168.0.1");
+        System.out.println("  DhcpRouteConverter -tdo --routeros 192.168.1.0/24,192.168.0.1");
+        System.out.println("  DhcpRouteConverter -tdo --junos 192.168.1.0/24,192.168.0.1");
         System.out.println("  DhcpRouteConverter -fdo 18c0a801c0a80001");
     }
 
@@ -121,11 +135,17 @@ public class DhcpRouteConverter {
      * @param networks List of networks in format "a.b.c.d/m"
      * @param gateways List of gateway IP addresses
      * @param debug If true, print individual route options
+     * @param format Output format: null (default), "--isc", "--routeros", or "--junos"
      * @return List of formatted DHCP options
      */
-    public static List<String> generateDhcpOptions(List<String> networks, List<String> gateways, boolean debug) {
+    public static List<String> generateDhcpOptions(List<String> networks, List<String> gateways, boolean debug, String format) {
         List<String> results = new ArrayList<>();
-        StringBuilder aggregate = new StringBuilder();
+        StringBuilder aggregateHex = new StringBuilder();
+
+        // Store route data for format-specific output
+        List<Integer> maskList = new ArrayList<>();
+        List<String> destinationList = new ArrayList<>();
+        List<String> routerList = new ArrayList<>();
 
         for (int i = 0; i < networks.size() && i < gateways.size(); i++) {
             String net = networks.get(i);
@@ -180,19 +200,113 @@ public class DhcpRouteConverter {
             }
 
             String routeHex = networkLen + destination + router;
-            aggregate.append(routeHex);
+            aggregateHex.append(routeHex);
 
             if (debug) {
                 System.out.println(String.format("option_121_route_%s_via_%s : 0x%s", net, gw, routeHex));
                 System.out.println(String.format("option_249_route_%s_via_%s : 0x%s", net, gw, routeHex));
             }
+
+            maskList.add(subnetMask);
+            destinationList.add(network);
+            routerList.add(gw);
         }
 
-        if (aggregate.length() > 0) {
-            results.add(String.format("aggregate_opt_121 : 0x%s", aggregate));
-            results.add(String.format("aggregate_opt_249 : 0x%s", aggregate));
+        if (aggregateHex.length() == 0) {
+            return results;
         }
 
+        // Generate output based on format
+        switch (format == null ? "default" : format) {
+            case "default" -> results.addAll(formatDefault(aggregateHex.toString()));
+            case "--isc" -> results.addAll(formatIsc(maskList, destinationList, routerList));
+            case "--routeros" -> results.addAll(formatRouterOs(aggregateHex.toString()));
+            case "--junos" -> results.addAll(formatJunos(aggregateHex.toString()));
+            default -> System.err.println("Error: Unsupported format: " + format);
+        }
+
+        return results;
+    }
+
+    /**
+     * Formats DHCP options in the default aggregate hex string format.
+     *
+     * @param aggregateHex The aggregated hex string for all routes
+     * @return List of formatted strings (aggregate_opt_121 and aggregate_opt_249)
+     */
+    private static List<String> formatDefault(String aggregateHex) {
+        List<String> results = new ArrayList<>();
+        results.add(String.format("aggregate_opt_121 : 0x%s", aggregateHex));
+        results.add(String.format("aggregate_opt_249 : 0x%s", aggregateHex));
+        return results;
+    }
+
+    /**
+     * Formats DHCP options for isc-dhcp-server.
+     *
+     * @param maskList List of subnet masks
+     * @param destinationList List of destination network addresses
+     * @param routerList List of gateway addresses
+     * @return List of formatted strings for isc-dhcp-server configuration
+     */
+    private static List<String> formatIsc(List<Integer> maskList, List<String> destinationList, List<String> routerList) {
+        List<String> results = new ArrayList<>();
+        results.add("option rfc3442-classless-static-routes code 121 = array of unsigned integer 8;");
+        StringBuilder opt121 = new StringBuilder("option rfc3442-classless-static-routes ");
+        results.add("option ms-classless-static-routes code 249 = array of unsigned integer 8;");
+        StringBuilder opt249 = new StringBuilder("option ms-classless-static-routes ");
+
+        for (int i = 0; i < maskList.size(); i++) {
+            String[] destParts = destinationList.get(i).split("\\.");
+            String[] gwParts = routerList.get(i).split("\\.");
+            int significantOctets = maskList.get(i) <= 8 ? 1 : maskList.get(i) <= 16 ? 2 : maskList.get(i) <= 24 ? 3 : 4;
+
+            if (i > 0) {
+                opt121.append(", ");
+                opt249.append(", ");
+            }
+            opt121.append(maskList.get(i));
+            opt249.append(maskList.get(i));
+            for (int j = 0; j < significantOctets; j++) {
+                opt121.append(",").append(destParts[j]);
+                opt249.append(",").append(destParts[j]);
+            }
+            for (String gwPart : gwParts) {
+                opt121.append(",").append(gwPart);
+                opt249.append(",").append(gwPart);
+            }
+        }
+        opt121.append(";");
+        opt249.append(";");
+        results.add(opt121.toString());
+        results.add(opt249.toString());
+
+        return results;
+    }
+
+    /**
+     * Formats DHCP options for MikroTik RouterOS.
+     *
+     * @param aggregateHex The aggregated hex string for all routes
+     * @return List of formatted strings for RouterOS configuration
+     */
+    private static List<String> formatRouterOs(String aggregateHex) {
+        List<String> results = new ArrayList<>();
+        results.add(String.format("/ip dhcp-server option add code=121 name=aggregate_opt_121 value=0x%s", aggregateHex));
+        results.add(String.format("/ip dhcp-server option add code=249 name=aggregate_opt_249 value=0x%s", aggregateHex));
+        return results;
+    }
+
+    /**
+     * Formats DHCP options for Juniper JunOS.
+     *
+     * @param aggregateHex The aggregated hex string for all routes
+     * @return List of formatted strings for JunOS configuration
+     */
+    private static List<String> formatJunos(String aggregateHex) {
+        List<String> results = new ArrayList<>();
+        results.add(String.format("set access address-assignment pool lan-pool family inet dhcp-attributes option 121 hex-string %s", aggregateHex));
+        results.add(String.format("set access address-assignment pool lan-pool family inet dhcp-attributes option 249 hex-string %s", aggregateHex));
         return results;
     }
 
