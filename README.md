@@ -37,8 +37,15 @@ The binary will be installed to `/usr/bin/DhcpRouteConverter`.
 - CPU: Any 64-bit x86-64 processor (Intel Pentium 4, AMD Athlon 64, or newer; 2003+).
 - OS: Linux (tested on Ubuntu/Debian).
 
+## Features
+- Convert network routes to DHCP options 121/249 and vice versa.
+- Supported formats: default (hex), ISC DHCP, MikroTik RouterOS, Juniper JunOS, Cisco IOS, Windows DHCP (PowerShell).
+- JunOS pool name customization with --junos=pool-name.
+- CPU compatibility: Any 64-bit x86-64 processor (Intel, AMD, 2003+).
+
 ## Releases
-- **v1.1.0**: Improved CPU compatibility with -march=x86-64, fixed GitHub Actions, and test improvements.
+- **v1.2.0**: Added Cisco/Windows formats, JunOS pool customization, format validation, QEMU CI testing.
+- **v1.1.0**: Improved CPU compatibility, fixed GitHub Actions, removed surefire warning.
 
 ## Usage
 
