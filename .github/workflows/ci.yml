@@ -8,15 +8,12 @@ on:
 
 jobs:
   build-and-test:
-    # Виконується на ubuntu-latest (найновіша версія Ubuntu).
     runs-on: ubuntu-latest
 
     steps:
-    # Checkout repository: Клонує репозиторій.
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # Set up GraalVM JDK 21: Встановлює GraalVM JDK 21 із native-image.
     - name: Set up GraalVM JDK 21
       uses: graalvm/setup-graalvm@v1
       with:
@@ -25,7 +22,6 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         native-image: true
 
-    # Cache Maven dependencies: Кешує залежності Maven для прискорення збірки.
     - name: Cache Maven dependencies
       uses: actions/cache@v4
       with:
@@ -33,16 +29,12 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
-    # Run tests and build: Запускає mvn clean package, що виконує тести 
-    # (через maven-surefire-plugin) і створює бінарник та .deb.
     - name: Run tests and build
       run: mvn clean package
 
-    # Upload .deb artifact: Завантажує target/DhcpRouteConverter_1.0.0_all.deb
-    # як артефакт, доступний у вкладці Actions на GitHub.
     - name: Upload .deb artifact
       uses: actions/upload-artifact@v4
       with:
         name: DhcpRouteConverter-deb
-        path: target/DhcpRouteConverter_1.0.0_all.deb
+        path: target/DhcpRouteConverter_*.deb
         if-no-files-found: error
