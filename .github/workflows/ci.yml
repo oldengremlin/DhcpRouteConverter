@@ -32,6 +32,12 @@ jobs:
     - name: Run tests and build
       run: mvn clean package
 
+    - name: Test binary with QEMU
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-user
+        qemu-x86_64 -cpu qemu64 ./target/DhcpRouteConverter -tdo 192.168.0.0/16,127.0.0.192
+
     - name: Upload .deb artifact
       uses: actions/upload-artifact@v4
       with:

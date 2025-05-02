@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>net.ukr-com</groupId>
     <artifactId>DhcpRouteConverter</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
     <packaging>jar</packaging>
     <name>DhcpRouteConverter</name>
     <description>A utility to convert network routes to DHCP options 121 and 249 and vice versa</description>
@@ -60,6 +60,9 @@
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
+                    <systemPropertyVariables>
+                        <!-- No system properties needed, but explicit declaration suppresses deprecated warning -->
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
             <plugin>
