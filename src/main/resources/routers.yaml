@@ -1,0 +1,35 @@
+global:
+  username: admin
+  password: secret
+  apply-method: NETCONF
+  append-routes:
+    - network: 10.0.0.0/8
+      gateway: 127.0.0.10
+    - network: 172.16.0.0/12
+      gateway: 127.0.0.172
+    - network: 192.168.0.0/16
+      gateway: 127.0.0.192
+routers:
+  - name: r540-1
+    disable-append-routes: true
+    pools:
+      r540pool1:
+        default-gateway: 94.176.198.17
+        disable-append-routes: true
+      r540pool_static1:
+        default-gateway: 94.176.199.33
+        common-routes:
+          - network: 172.16.0.0/12
+            gateway: 192.168.1.1
+  - name: r560-1
+    pools:
+      r560pool1:
+        default-gateway: 94.176.198.1
+        disable-append-routes: true
+      r560pool_static1:
+        default-gateway: 94.176.200.10
+        common-routes:
+          - network: 192.168.0.0/16
+            gateway: 192.168.2.1
+          - network: 10.255.0.0/16
+            gateway: 94.176.200.11
