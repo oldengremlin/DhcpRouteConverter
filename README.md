@@ -96,12 +96,12 @@ Run `DhcpRouteConverter` with the desired options and arguments. Use `-?` or `--
 
 1. **Convert routes to JunOS format with default gateway (only option 121)**:
    ```bash
-   DhcpRouteConverter -tdo --junos=r540pool1=10.0.0.0/8,127.0.0.10 --add-default-gateway=94.176.198.17
+   DhcpRouteConverter -tdo --junos=r540pool1 --add-default-gateway=94.176.198.17
    ```
 
 2. **Convert routes to JunOS format with both options 121 and 249**:
    ```bash
-   DhcpRouteConverter -tdo --junos=r540pool1=10.0.0.0/8,127.0.0.10 --add-default-gateway=94.176.198.17 --with-option-249
+   DhcpRouteConverter -tdo --junos=r540pool1 --add-default-gateway=94.176.198.17 --with-option-249
    ```
 
 3. **Add default routes for multiple pools**:
