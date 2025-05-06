@@ -26,7 +26,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Main class for the DhcpRouteConverter utility, which converts network routes to DHCP options 121/249 and vice versa.
+ * Main class for the DhcpRouteConverter utility, which converts network routes
+ * to DHCP options 121/249 and vice versa.
  */
 public class Main {
 
@@ -114,8 +115,7 @@ public class Main {
      * @param converter DHCP option converter instance.
      */
     private static void outputOptions(List<String> dhcpOptions, ArgumentParser parser, DhcpOptionConverter converter) {
-        OutputFormatter formatter = new OutputFormatter();
-        String output = formatter.format(dhcpOptions);
+        String output = new OutputFormatter().format(dhcpOptions);
         System.out.println(output);
 
         if (!parser.isWithoutWarnNoDefaultRoute() && !converter.hasDefaultRoute()) {
@@ -156,7 +156,9 @@ public class Main {
                     return;
                 }
             } else {
-                System.err.println("DEBUG: No routers configuration found in YAML file");
+                if (parser.isDebug()) {
+                    System.err.println("DEBUG: No routers configuration found in YAML file");
+                }
             }
             converter = new DhcpOptionConverter();
             List<String> dhcpOptions = new ArrayList<>();
@@ -166,19 +168,28 @@ public class Main {
                     PoolConfig pool = entry.getValue();
                     List<String> poolNetworks = new ArrayList<>();
                     List<String> poolGateways = new ArrayList<>();
+                    // Додаємо default-gateway
                     if (pool.getDefaultGateway() != null) {
                         poolNetworks.add("0.0.0.0/0");
                         poolGateways.add(pool.getDefaultGateway());
                     }
+                    // Додаємо common-routes пулу
                     for (Map<String, String> route : pool.getCommonRoutes()) {
                         poolNetworks.add(route.get("network"));
                         poolGateways.add(route.get("gateway"));
                     }
+                    // Додаємо append-routes з global, якщо не відключено
+                    if (!pool.isDisableAppendRoutes() && !router.isDisableAppendRoutes()) {
+                        for (Map<String, String> route : globalConfig.getAppendRoutes()) {
+                            poolNetworks.add(route.get("network"));
+                            poolGateways.add(route.get("gateway"));
+                        }
+                    }
                     if (!poolNetworks.isEmpty()) {
                         dhcpOptions.addAll(converter.generateDhcpOptions(
-                            poolNetworks, poolGateways, parser.isDebug(),
-                            parser.isWithWarningLoopback(), DhcpOptionConverter.Format.JUNOS,
-                            poolName, null));
+                                poolNetworks, poolGateways, parser.isDebug(),
+                                parser.isWithWarningLoopback(), DhcpOptionConverter.Format.JUNOS,
+                                poolName, null));
                     }
                 }
             }
@@ -238,9 +249,9 @@ public class Main {
                 }
                 if (!poolNetworks.isEmpty()) {
                     dhcpOptions.addAll(converter.generateDhcpOptions(
-                        poolNetworks, poolGateways, parser.isDebug(),
-                        parser.isWithWarningLoopback(), DhcpOptionConverter.Format.JUNOS,
-                        poolName, null));
+                            poolNetworks, poolGateways, parser.isDebug(),
+                            parser.isWithWarningLoopback(), DhcpOptionConverter.Format.JUNOS,
+                            poolName, null));
                 }
             }
         }
