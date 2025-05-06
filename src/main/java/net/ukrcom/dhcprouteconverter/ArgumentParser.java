@@ -22,7 +22,6 @@ public class ArgumentParser {
     private String commonRoutes;
     private boolean withoutWarnNoDefaultRoute;
     private boolean withWarningLoopback;
-//    private String toDhcpOptions;
     private String fromDhcpOptions;
     private boolean debug;
     private String format;
@@ -96,7 +95,6 @@ public class ArgumentParser {
                     }
                 }
                 if (argIndex < this.args.length && !this.args[argIndex].startsWith("-")) {
-                    // toDhcpOptions = this.args[argIndex];
                     if (commonRoutes != null) {
                         sayCommonRoutesError();
                     }
@@ -133,9 +131,6 @@ public class ArgumentParser {
         return withWarningLoopback;
     }
 
-//    public String getToDhcpOptions() {
-//        return toDhcpOptions;
-//    }
     public String getFromDhcpOptions() {
         return fromDhcpOptions;
     }

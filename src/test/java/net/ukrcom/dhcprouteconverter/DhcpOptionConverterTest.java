@@ -14,6 +14,7 @@
  */
 package net.ukrcom.dhcprouteconverter;
 
+import java.io.ByteArrayOutputStream;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -235,4 +237,18 @@ public class DhcpOptionConverterTest {
             fail("Failed to load YAML: " + e.getMessage());
         }
     }
+
+    @Test
+    public void testDebugModeOutput() {
+        List<String> networks = Arrays.asList("192.168.1.0/24");
+        List<String> gateways = Arrays.asList("10.0.0.1");
+        ByteArrayOutputStream outContent = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(outContent));
+        converter.generateDhcpOptions(networks, gateways, true, false, DhcpOptionConverter.Format.DEFAULT, null, null);
+        System.setOut(System.out);
+        String output = outContent.toString();
+        assertTrue(output.contains("DEBUG: Parsing network: 192.168.1.0/24, gateway: 10.0.0.1"), "Debug output should contain parsing info");
+        assertTrue(output.contains("DEBUG: Generated hex for route: "), "Debug output should contain hex route");
+    }
+
 }

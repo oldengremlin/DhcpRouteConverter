@@ -25,11 +25,16 @@ import java.util.regex.Pattern;
  */
 public class DhcpOptionConverter {
 
-    private boolean hasDefaultRoute = false;
-    private boolean debugMode = false;
+    private boolean hasDefaultRoute;
+    private boolean debugMode;
 
     public enum Format {
         DEFAULT, ISC, ROUTEROS, JUNOS, CISCO, WINDOWS
+    }
+
+    public DhcpOptionConverter() {
+        this.debugMode = false;
+        this.hasDefaultRoute = false;
     }
 
     /**
