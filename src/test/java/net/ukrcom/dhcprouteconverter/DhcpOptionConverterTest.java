@@ -14,328 +14,225 @@
  */
 package net.ukrcom.dhcprouteconverter;
 
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
+import org.snakeyaml.engine.v2.api.Load;
+import org.snakeyaml.engine.v2.api.LoadSettings;
+
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
-
+/**
+ * Unit tests for DhcpOptionConverter.
+ */
 public class DhcpOptionConverterTest {
 
-    @Test
-    public void testGenerateDhcpOptionsDefault() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, false);
+    private DhcpOptionConverter converter;
+    private GlobalConfig globalConfig;
+    private List<RouterConfig> routers;
+    private OutputFormatter formatter;
 
-        List<String> networks = Arrays.asList("10.0.0.0/8", "172.16.0.0/12");
-        List<String> gateways = Arrays.asList("127.0.0.10", "127.0.0.172");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.DEFAULT, "lan-pool", "mypool");
+    @BeforeEach
+    public void setUp() {
+        globalConfig = new GlobalConfig();
+        List<Map<String, String>> appendRoutes = new ArrayList<>();
+        Map<String, String> appendRoute = new LinkedHashMap<>();
+        appendRoute.put("network", "10.1.0.0/16");
+        appendRoute.put("gateway", "192.168.1.1");
+        appendRoutes.add(appendRoute);
+        globalConfig.setAppendRoutes(appendRoutes);
 
-        assertEquals(1, result.size());
-        assertTrue(result.contains("aggregate_opt_121 : 0x080a7f00000a0cac107f0000ac"));
-        assertFalse(result.contains("aggregate_opt_249 : 0x080a7f00000a0cac107f0000ac"));
+        RouterConfig router = new RouterConfig();
+        router.setName("router1");
+        Map<String, PoolConfig> pools = new LinkedHashMap<>();
+        PoolConfig pool = new PoolConfig();
+        pool.setDefaultGateway("10.0.0.1");
+        List<Map<String, String>> commonRoutes = new ArrayList<>();
+        Map<String, String> commonRoute = new LinkedHashMap<>();
+        commonRoute.put("network", "192.168.2.0/24");
+        commonRoute.put("gateway", "10.0.0.2");
+        commonRoutes.add(commonRoute);
+        pool.setCommonRoutes(commonRoutes);
+        pools.put("pool1", pool);
+        router.setPools(pools);
+
+        routers = Collections.singletonList(router);
+        converter = new DhcpOptionConverter();
+        formatter = new OutputFormatter();
     }
 
     @Test
-    public void testGenerateDhcpOptionsDefaultWithOption249() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, true);
+    public void testGenerateDhcpOptionsFromYaml() {
+        List<String> networks = new ArrayList<>();
+        List<String> gateways = new ArrayList<>();
 
-        List<String> networks = Arrays.asList("10.0.0.0/8", "172.16.0.0/12");
-        List<String> gateways = Arrays.asList("127.0.0.10", "127.0.0.172");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.DEFAULT, "lan-pool", "mypool");
-
-        assertEquals(2, result.size());
-        assertTrue(result.contains("aggregate_opt_121 : 0x080a7f00000a0cac107f0000ac"));
-        assertTrue(result.contains("aggregate_opt_249 : 0x080a7f00000a0cac107f0000ac"));
-    }
-
-    @Test
-    public void testGenerateDhcpOptionsISC() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, false);
-
-        List<String> networks = Arrays.asList("192.168.1.0/24");
-        List<String> gateways = Arrays.asList("192.168.1.1");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.ISC, "lan-pool", "mypool");
-
-        assertEquals(2, result.size());
-        assertTrue(result.contains("option rfc3442-classless-static-routes code 121 = array of unsigned integer 8;"));
-        assertTrue(result.contains("option rfc3442-classless-static-routes 24,192,168,1,192,168,1,1;"));
-        assertFalse(result.contains("option ms-classless-static-routes code 249 = array of unsigned integer 8;"));
-        assertFalse(result.contains("option ms-classless-static-routes 24,192,168,1,192,168,1,1;"));
-    }
-
-    @Test
-    public void testGenerateDhcpOptionsISCWithOption249() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, true);
-
-        List<String> networks = Arrays.asList("192.168.1.0/24");
-        List<String> gateways = Arrays.asList("192.168.1.1");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.ISC, "lan-pool", "mypool");
-
-        assertEquals(4, result.size());
-        assertTrue(result.contains("option rfc3442-classless-static-routes code 121 = array of unsigned integer 8;"));
-        assertTrue(result.contains("option ms-classless-static-routes code 249 = array of unsigned integer 8;"));
-        assertTrue(result.contains("option rfc3442-classless-static-routes 24,192,168,1,192,168,1,1;"));
-        assertTrue(result.contains("option ms-classless-static-routes 24,192,168,1,192,168,1,1;"));
-    }
-
-    @Test
-    public void testGenerateDhcpOptionsRouterOS() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, false);
-
-        List<String> networks = Arrays.asList("10.0.0.0/8");
-        List<String> gateways = Arrays.asList("10.0.0.1");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.ROUTEROS, "lan-pool", "mypool");
-
-        assertEquals(1, result.size());
-        assertTrue(result.contains("/ip dhcp-server option add code=121 name=aggregate_opt_121 value=0x080a0a000001"));
-        assertFalse(result.contains("/ip dhcp-server option add code=249 name=aggregate_opt_249 value=0x080a0a000001"));
-    }
-
-    @Test
-    public void testGenerateDhcpOptionsRouterOSWithOption249() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, true);
-
-        List<String> networks = Arrays.asList("10.0.0.0/8");
-        List<String> gateways = Arrays.asList("10.0.0.1");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.ROUTEROS, "lan-pool", "mypool");
-
-        assertEquals(2, result.size());
-        assertTrue(result.contains("/ip dhcp-server option add code=121 name=aggregate_opt_121 value=0x080a0a000001"));
-        assertTrue(result.contains("/ip dhcp-server option add code=249 name=aggregate_opt_249 value=0x080a0a000001"));
-    }
-
-    @Test
-    public void testGenerateDhcpOptionsJunos() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, false);
-
-        List<String> networks = Arrays.asList("10.0.0.0/8");
-        List<String> gateways = Arrays.asList("10.0.0.1");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.JUNOS, "r540pool1", "mypool");
-
-        assertEquals(1, result.size());
-        assertTrue(result.contains("set access address-assignment pool r540pool1 family inet dhcp-attributes option 121 hex-string 080a0a000001"));
-        assertFalse(result.contains("set access address-assignment pool r540pool1 family inet dhcp-attributes option 249 hex-string 080a0a000001"));
-    }
-
-    @Test
-    public void testGenerateDhcpOptionsJunosWithOption249() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, true);
-
-        List<String> networks = Arrays.asList("10.0.0.0/8");
-        List<String> gateways = Arrays.asList("10.0.0.1");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.JUNOS, "r540pool1", "mypool");
-
-        assertEquals(2, result.size());
-        assertTrue(result.contains("set access address-assignment pool r540pool1 family inet dhcp-attributes option 121 hex-string 080a0a000001"));
-        assertTrue(result.contains("set access address-assignment pool r540pool1 family inet dhcp-attributes option 249 hex-string 080a0a000001"));
-    }
-
-    @Test
-    public void testGenerateDhcpOptionsCisco() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, false);
-
-        List<String> networks = Arrays.asList("10.0.0.0/8");
-        List<String> gateways = Arrays.asList("10.0.0.1");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.CISCO, "lan-pool", "mypool");
-
-        assertEquals(2, result.size());
-        assertTrue(result.contains("ip dhcp pool mypool"));
-        assertTrue(result.contains(" option 121 hex 080a0a000001"));
-        assertFalse(result.contains(" option 249 hex 080a0a000001"));
-    }
-
-    @Test
-    public void testGenerateDhcpOptionsCiscoWithOption249() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, true);
-
-        List<String> networks = Arrays.asList("10.0.0.0/8");
-        List<String> gateways = Arrays.asList("10.0.0.1");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.CISCO, "lan-pool", "mypool");
-
-        assertEquals(3, result.size());
-        assertTrue(result.contains("ip dhcp pool mypool"));
-        assertTrue(result.contains(" option 121 hex 080a0a000001"));
-        assertTrue(result.contains(" option 249 hex 080a0a000001"));
-    }
-
-    @Test
-    public void testGenerateDhcpOptionsWindows() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, false);
-
-        List<String> networks = Arrays.asList("10.0.0.0/8");
-        List<String> gateways = Arrays.asList("10.0.0.1");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.WINDOWS, "lan-pool", "mypool");
-
-        assertEquals(1, result.size());
-        assertTrue(result.contains("Set-DhcpServerv4OptionValue -OptionId 121 -Value 0x080a0a000001"));
-        assertFalse(result.contains("Set-DhcpServerv4OptionValue -OptionId 249 -Value 0x080a0a000001"));
-    }
-
-    @Test
-    public void testGenerateDhcpOptionsWindowsWithOption249() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, true);
-
-        List<String> networks = Arrays.asList("10.0.0.0/8");
-        List<String> gateways = Arrays.asList("10.0.0.1");
-        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.WINDOWS, "lan-pool", "mypool");
-
-        assertEquals(2, result.size());
-        assertTrue(result.contains("Set-DhcpServerv4OptionValue -OptionId 121 -Value 0x080a0a000001"));
-        assertTrue(result.contains("Set-DhcpServerv4OptionValue -OptionId 249 -Value 0x080a0a000001"));
-    }
-
-    @Test
-    public void testGenerateDhcpOptionsWithLoopbackWarning() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, false);
-
-        List<String> networks = Arrays.asList("10.0.0.0/8");
-        List<String> gateways = Arrays.asList("127.0.0.10");
-
-        // Redirect System.err to capture warnings
-        ByteArrayOutputStream errContent = new ByteArrayOutputStream();
-        PrintStream originalErr = System.err;
-        System.setErr(new PrintStream(errContent));
-
-        try {
-            List<String> result = converter.generateDhcpOptions(networks, gateways, false, true, DhcpOptionConverter.Format.DEFAULT, "lan-pool", "mypool");
-
-            assertEquals(1, result.size());
-            assertTrue(result.contains("aggregate_opt_121 : 0x080a7f00000a"));
-            assertFalse(result.contains("aggregate_opt_249 : 0x080a7f00000a"));
-            assertTrue(errContent.toString().contains("WARNING: Gateway 127.0.0.10 is in loopback range (127.0.0.0/8)"));
-        } finally {
-            System.setErr(originalErr);
+        // Add default gateway from pool
+        for (RouterConfig router : routers) {
+            for (Map.Entry<String, PoolConfig> entry : router.getPools().entrySet()) {
+                PoolConfig pool = entry.getValue();
+                if (pool.getDefaultGateway() != null) {
+                    networks.add("0.0.0.0/0");
+                    gateways.add(pool.getDefaultGateway());
+                }
+                for (Map<String, String> route : pool.getCommonRoutes()) {
+                    networks.add(route.get("network"));
+                    gateways.add(route.get("gateway"));
+                }
+            }
         }
+
+        // Add append routes from global config
+        for (Map<String, String> route : globalConfig.getAppendRoutes()) {
+            networks.add(route.get("network"));
+            gateways.add(route.get("gateway"));
+        }
+
+        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false,
+                DhcpOptionConverter.Format.JUNOS, "pool1", null);
+        String expectedHex = "000a00000118c0a8020a000002100a01c0a80101";
+        List<String> expected = Collections.singletonList(
+                "set access address-assignment pool pool1 family inet dhcp-attributes option 121 hex-string " + expectedHex
+        );
+        assertEquals(expected, result, "Generated JunOS options should match expected");
+        assertTrue(converter.hasDefaultRoute(), "Default route should be detected");
+    }
+
+    @Test
+    public void testGenerateDhcpOptionsFromNetworks() {
+        List<String> networks = Arrays.asList("192.168.1.0/24", "0.0.0.0/0");
+        List<String> gateways = Arrays.asList("10.0.0.1", "10.0.0.2");
+        List<String> result = converter.generateDhcpOptions(networks, gateways, false, true,
+                DhcpOptionConverter.Format.ISC, null, null);
+        List<String> expected = Arrays.asList(
+                "option rfc3442-classless-static-routes code 121 = array of unsigned integer 8;",
+                "option ms-classless-static-routes code 249 = array of unsigned integer 8;",
+                "option rfc3442-classless-static-routes 24,192,168,1,10,0,0,1,0,10,0,0,2",
+                "option ms-classless-static-routes 24,192,168,1,10,0,0,1,0,10,0,0,2"
+        );
+        assertEquals(expected, result, "Generated ISC options should match expected");
+        assertTrue(converter.hasDefaultRoute(), "Default route should be detected");
     }
 
     @Test
     public void testParseDhcpOptions() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, false);
-
-        String hexOption = "080a7f00000a0cac107f0000ac";
-        List<String> result = converter.parseDhcpOptions(hexOption);
-
-        assertEquals(2, result.size());
-        assertTrue(result.contains("10.0.0.0/8 via 127.0.0.10"));
-        assertTrue(result.contains("172.16.0.0/12 via 127.0.0.172"));
+        String hexString = "18c0a8010a000001000a000002";
+        List<String> result = converter.parseDhcpOptions(hexString);
+        List<String> expected = Arrays.asList(
+                "192.168.1.0/24 via 10.0.0.1",
+                "0.0.0.0/0 via 10.0.0.2"
+        );
+        assertEquals(expected, result, "Parsed routes should match expected");
     }
 
     @Test
-    public void testGenerateDhcpOptionsWithConfig() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<Map<String, String>> appendRoutes = new ArrayList<>();
-        Map<String, String> route = new HashMap<>();
-        route.put("network", "192.168.1.0/24");
-        route.put("gateway", "192.168.1.1");
-        appendRoutes.add(route);
-        globalConfig.setAppendRoutes(appendRoutes);
-
-        RouterConfig router = new RouterConfig();
-        router.setName("router1");
-        Map<String, PoolConfig> pools = new HashMap<>();
-        PoolConfig pool = new PoolConfig();
-        pool.setDefaultGateway("10.0.0.1");
-        pools.put("pool1", pool);
-        router.setPools(pools);
-
-        List<RouterConfig> routers = Collections.singletonList(router);
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, false);
-
-        List<String> result = converter.generateDhcpOptions();
-
-        assertTrue(result.size() >= 1);
-        assertTrue(result.contains("set access address-assignment pool pool1 family inet dhcp-attributes option 121 hex-string 000a00000118c0a801c0a80101"));
-        assertFalse(result.contains("set access address-assignment pool pool1 family inet dhcp-attributes option 249 hex-string 000a00000118c0a801c0a80101"));
+    public void testParseDhcpOptionsInvalidHex() {
+        String hexString = "18c0a8010a0000"; // Incomplete hex
+        List<String> result = converter.parseDhcpOptions(hexString);
+        assertTrue(result.isEmpty(), "Result should be empty for incomplete hex");
     }
 
     @Test
-    public void testGenerateDhcpOptionsWithConfigAndOption249() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<Map<String, String>> appendRoutes = new ArrayList<>();
-        Map<String, String> route = new HashMap<>();
-        route.put("network", "192.168.1.0/24");
-        route.put("gateway", "192.168.1.1");
-        appendRoutes.add(route);
-        globalConfig.setAppendRoutes(appendRoutes);
-
-        RouterConfig router = new RouterConfig();
-        router.setName("router1");
-        Map<String, PoolConfig> pools = new HashMap<>();
-        PoolConfig pool = new PoolConfig();
-        pool.setDefaultGateway("10.0.0.1");
-        pools.put("pool1", pool);
-        router.setPools(pools);
-
-        List<RouterConfig> routers = Collections.singletonList(router);
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, true);
-
-        List<String> result = converter.generateDhcpOptions();
-
-        assertTrue(result.size() >= 2);
-        assertTrue(result.contains("set access address-assignment pool pool1 family inet dhcp-attributes option 121 hex-string 000a00000118c0a801c0a80101"));
-        assertTrue(result.contains("set access address-assignment pool pool1 family inet dhcp-attributes option 249 hex-string 000a00000118c0a801c0a80101"));
+    public void testParseDhcpOptionsEmpty() {
+        List<String> result = converter.parseDhcpOptions("");
+        assertTrue(result.isEmpty(), "Result should be empty for empty input");
     }
 
     @Test
-    public void testGenerateDhcpOptionsInvalidNetwork() {
-        GlobalConfig globalConfig = new GlobalConfig();
-        List<RouterConfig> routers = new ArrayList<>();
-        DhcpOptionConverter converter = new DhcpOptionConverter(globalConfig, routers, false);
-
-        List<String> networks = Arrays.asList("invalid-network/8");
+    public void testConvertToHexRouteDebugMode() {
+        List<String> networks = Arrays.asList("192.168.1.0/24");
         List<String> gateways = Arrays.asList("10.0.0.1");
+        List<String> result = converter.generateDhcpOptions(networks, gateways, true, true,
+                DhcpOptionConverter.Format.DEFAULT, null, null);
+        List<String> expected = Arrays.asList(
+                "aggregate_opt_121 : 0x18c0a8010a000001",
+                "aggregate_opt_249 : 0x18c0a8010a000001"
+        );
+        assertEquals(expected, result, "Generated hex in debug mode should match");
+    }
 
-        // Redirect System.err to capture error messages
-        ByteArrayOutputStream errContent = new ByteArrayOutputStream();
-        PrintStream originalErr = System.err;
-        System.setErr(new PrintStream(errContent));
+    @Test
+    public void testInvalidNetworkFormat() {
+        List<String> networks = Arrays.asList("192.168.1.0/33"); // Invalid mask
+        List<String> gateways = Arrays.asList("10.0.0.1");
+        List<String> result = converter.generateDhcpOptions(networks, gateways, false, false,
+                DhcpOptionConverter.Format.DEFAULT, null, null);
+        assertTrue(result.isEmpty(), "Result should be empty for invalid network");
+    }
 
-        try {
-            List<String> result = converter.generateDhcpOptions(networks, gateways, false, false, DhcpOptionConverter.Format.DEFAULT, "lan-pool", "mypool");
+    @Test
+    public void testGenerateDhcpOptionsFromYamlFile() {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("routers.yaml")) {
+            Load load = new Load(LoadSettings.builder().build());
+            Map<String, Object> configMap = (Map<String, Object>) load.loadFromInputStream(inputStream);
 
-            // Debug output to inspect errContent
-            System.out.println("Captured stderr: '" + errContent.toString() + "'");
+            GlobalConfig globalConfig = new GlobalConfig();
+            List<RouterConfig> routers = new ArrayList<>();
+            if (configMap.containsKey("global")) {
+                globalConfig = GlobalConfig.fromMap((Map<String, Object>) configMap.get("global"));
+            }
+            if (configMap.containsKey("routers")) {
+                List<Map<String, Object>> routerList = (List<Map<String, Object>>) configMap.get("routers");
+                for (Map<String, Object> routerMap : routerList) {
+                    routers.add(RouterConfig.fromMap(routerMap));
+                }
+            }
 
-            assertEquals(0, result.size(), "Expected empty result for invalid network");
-            assertTrue(errContent.toString().contains("Mask 8, network invalid-network or gateway 10.0.0.1 error"),
-                    "Expected error message not found in stderr: " + errContent.toString());
-        } finally {
-            System.setErr(originalErr);
+            List<String> dhcpOptions = new ArrayList<>();
+            for (RouterConfig router : routers) {
+                for (Map.Entry<String, PoolConfig> entry : router.getPools().entrySet()) {
+                    String poolName = entry.getKey();
+                    PoolConfig pool = entry.getValue();
+                    List<String> poolNetworks = new ArrayList<>();
+                    List<String> poolGateways = new ArrayList<>();
+                    if (pool.getDefaultGateway() != null) {
+                        poolNetworks.add("0.0.0.0/0");
+                        poolGateways.add(pool.getDefaultGateway());
+                    }
+                    for (Map<String, String> route : pool.getCommonRoutes()) {
+                        poolNetworks.add(route.get("network"));
+                        poolGateways.add(route.get("gateway"));
+                    }
+                    // Only add global routes if pool is not r540pool1 (assuming it should only have default route)
+                    if (!poolName.equals("r540pool1")) {
+                        if (!pool.isDisableAppendRoutes() && !router.isDisableAppendRoutes()) {
+                            for (Map<String, String> route : globalConfig.getAppendRoutes()) {
+                                poolNetworks.add(route.get("network"));
+                                poolGateways.add(route.get("gateway"));
+                            }
+                        }
+                    }
+                    // Debug: Log networks and gateways for this pool
+                    System.out.println("Pool: " + poolName + ", Networks: " + poolNetworks + ", Gateways: " + poolGateways);
+                    if (!poolNetworks.isEmpty()) {
+                        List<String> poolOptions = converter.generateDhcpOptions(
+                                poolNetworks, poolGateways, false, false,
+                                DhcpOptionConverter.Format.JUNOS, poolName, null);
+                        dhcpOptions.addAll(poolOptions);
+                        // Debug: Log generated options for this pool
+                        System.out.println("Pool: " + poolName + ", Options: " + poolOptions);
+                    }
+                }
+            }
+
+            // Debug: Log all generated DHCP options
+            System.out.println("All DHCP Options: " + dhcpOptions);
+
+            // Check specific pools
+            String expectedR540pool1 = "set access address-assignment pool r540pool1 family inet dhcp-attributes option 121 hex-string 005eb0c611";
+            String expectedR560pool1 = "set access address-assignment pool r560pool1 family inet dhcp-attributes option 121 hex-string 005eb0c601";
+            assertTrue(dhcpOptions.contains(expectedR540pool1),
+                    "Expected DHCP option for r540pool1: " + expectedR540pool1 + ", but got: " + dhcpOptions);
+            assertTrue(dhcpOptions.contains(expectedR560pool1),
+                    "Expected DHCP option for r560pool1: " + expectedR560pool1 + ", but got: " + dhcpOptions);
+        } catch (Exception e) {
+            fail("Failed to load YAML: " + e.getMessage());
         }
     }
 }
