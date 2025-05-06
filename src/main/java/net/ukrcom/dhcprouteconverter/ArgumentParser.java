@@ -22,24 +22,27 @@ public class ArgumentParser {
     private String commonRoutes;
     private boolean withoutWarnNoDefaultRoute;
     private boolean withWarningLoopback;
-    private String toDhcpOptions;
+//    private String toDhcpOptions;
     private String fromDhcpOptions;
     private boolean debug;
     private String format;
     private String junosPoolName;
     private String ciscoPoolName;
     private boolean withOption249;
+    private final String[] args;
 
-    public ArgumentParser() {
+    public ArgumentParser(String[] args) {
         this.junosPoolName = "lan-pool";
         this.ciscoPoolName = "mypool";
         this.format = "default";
         this.withOption249 = false;
+        this.args = args;
+        parse();
     }
 
-    public void parse(String[] args) {
-        for (int i = 0; i < args.length; i++) {
-            String arg = args[i];
+    private void parse() {
+        for (int i = 0; i < this.args.length; i++) {
+            String arg = this.args[i];
             if (arg.startsWith("--config=")) {
                 configFile = arg.substring("--config=".length());
             } else if (arg.startsWith("--add-default-multi-pool=")) {
@@ -47,6 +50,9 @@ public class ArgumentParser {
             } else if (arg.startsWith("--add-default-gateway=")) {
                 addDefaultGateway = arg.substring("--add-default-gateway=".length());
             } else if (arg.startsWith("--common-routes=")) {
+                if (commonRoutes != null) {
+                    sayCommonRoutesError();
+                }
                 commonRoutes = arg.substring("--common-routes=".length());
             } else if (arg.equals("--without-warn-no-default-route")) {
                 withoutWarnNoDefaultRoute = true;
@@ -56,45 +62,49 @@ public class ArgumentParser {
                 withOption249 = true;
             } else if ((arg.equals("--to-dhcp-options") || arg.equals("-tdo"))) {
                 int argIndex = i + 1;
-                if (argIndex < args.length && args[argIndex].equals("-d")) {
+                if (argIndex < this.args.length && this.args[argIndex].equals("-d")) {
                     debug = true;
                     argIndex++;
                 }
-                if (argIndex < args.length) {
-                    if (args[argIndex].equals("--isc")) {
+                if (argIndex < this.args.length) {
+                    if (this.args[argIndex].equals("--isc")) {
                         format = "isc";
                         argIndex++;
-                    } else if (args[argIndex].startsWith("--routeros=")) {
+                    } else if (this.args[argIndex].startsWith("--routeros=")) {
                         format = "routeros";
                         argIndex++;
-                    } else if (args[argIndex].equals("--routeros")) {
+                    } else if (this.args[argIndex].equals("--routeros")) {
                         format = "routeros";
                         argIndex++;
-                    } else if (args[argIndex].equals("--junos")) {
+                    } else if (this.args[argIndex].equals("--junos")) {
                         format = "junos";
                         argIndex++;
-                    } else if (args[argIndex].startsWith("--junos=")) {
+                    } else if (this.args[argIndex].startsWith("--junos=")) {
                         format = "junos";
-                        junosPoolName = args[argIndex].substring("--junos=".length());
+                        junosPoolName = this.args[argIndex].substring("--junos=".length());
                         argIndex++;
-                    } else if (args[argIndex].equals("--cisco")) {
+                    } else if (this.args[argIndex].equals("--cisco")) {
                         format = "cisco";
                         argIndex++;
-                    } else if (args[argIndex].startsWith("--cisco=")) {
+                    } else if (this.args[argIndex].startsWith("--cisco=")) {
                         format = "cisco";
-                        ciscoPoolName = args[argIndex].substring("--cisco=".length());
+                        ciscoPoolName = this.args[argIndex].substring("--cisco=".length());
                         argIndex++;
-                    } else if (args[argIndex].equals("--windows")) {
+                    } else if (this.args[argIndex].equals("--windows")) {
                         format = "windows";
                         argIndex++;
                     }
                 }
-                if (argIndex < args.length && !args[argIndex].startsWith("-")) {
-                    toDhcpOptions = args[argIndex];
+                if (argIndex < this.args.length && !this.args[argIndex].startsWith("-")) {
+                    // toDhcpOptions = this.args[argIndex];
+                    if (commonRoutes != null) {
+                        sayCommonRoutesError();
+                    }
+                    commonRoutes = this.args[argIndex];
                     i = argIndex;
                 }
-            } else if ((arg.equals("--from-dhcp-options") || arg.equals("-fdo")) && i + 1 < args.length) {
-                fromDhcpOptions = args[++i];
+            } else if ((arg.equals("--from-dhcp-options") || arg.equals("-fdo")) && i + 1 < this.args.length) {
+                fromDhcpOptions = this.args[++i];
             }
         }
     }
@@ -123,10 +133,9 @@ public class ArgumentParser {
         return withWarningLoopback;
     }
 
-    public String getToDhcpOptions() {
-        return toDhcpOptions;
-    }
-
+//    public String getToDhcpOptions() {
+//        return toDhcpOptions;
+//    }
     public String getFromDhcpOptions() {
         return fromDhcpOptions;
     }
@@ -149,5 +158,10 @@ public class ArgumentParser {
 
     public boolean isWithOption249() {
         return withOption249;
+    }
+
+    private void sayCommonRoutesError() {
+        System.err.println("ERROR: In --to-dhcp-options mode, it is not possible to use network/gateway pairs and the --common-routes=<network1,gateway1,...> option at the same time.");
+        System.exit(1);
     }
 }

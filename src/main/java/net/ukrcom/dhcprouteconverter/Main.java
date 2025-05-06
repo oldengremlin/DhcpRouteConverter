@@ -25,17 +25,32 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Main class for the DhcpRouteConverter utility, which converts network routes to DHCP options 121/249 and vice versa.
+ */
 public class Main {
 
+    private static ArgumentParser parser;
+    private static Map<String, Object> configMap;
+    private static GlobalConfig globalConfig;
+    private static List<RouterConfig> routers;
+    private static DhcpOptionConverter converter;
+    private static List<String> networks;
+    private static List<String> gateways;
+
+    /**
+     * Entry point for the DhcpRouteConverter utility.
+     *
+     * @param args Command-line arguments.
+     */
     public static void main(String[] args) {
         try {
-            ArgumentParser parser = new ArgumentParser();
-            parser.parse(args);
-
             if (args.length == 0 || args[0].equals("--help") || args[0].equals("-?")) {
                 printHelp();
                 return;
             }
+
+            parser = new ArgumentParser(args);
 
             // Check for mutually exclusive options
             if (parser.getAddDefaultGateway() != null && parser.getAddDefaultMultiPool() != null) {
@@ -47,27 +62,13 @@ public class Main {
                 return;
             }
 
-            Map<String, Object> configMap = new HashMap<>();
-            GlobalConfig globalConfig = new GlobalConfig();
-            List<RouterConfig> routers = new ArrayList<>();
-            DhcpOptionConverter converter = null;
+            configMap = new HashMap<>();
+            globalConfig = new GlobalConfig();
+            routers = new ArrayList<>();
 
             // Collect networks and gateways from all sources
-            List<String> networks = new ArrayList<>();
-            List<String> gateways = new ArrayList<>();
-
-            // Process --to-dhcp-options (optional network/gateway pairs)
-            if (parser.getToDhcpOptions() != null) {
-                String[] pairs = parser.getToDhcpOptions().split(",");
-                if (pairs.length % 2 != 0) {
-                    System.err.println("ERROR: Network and gateway pairs must be complete in --to-dhcp-options");
-                    return;
-                }
-                for (int i = 0; i < pairs.length; i += 2) {
-                    networks.add(pairs[i]);
-                    gateways.add(pairs[i + 1]);
-                }
-            }
+            networks = new ArrayList<>();
+            gateways = new ArrayList<>();
 
             // Process --common-routes (processed after to-dhcp-options)
             if (parser.getCommonRoutes() != null) {
@@ -89,86 +90,13 @@ public class Main {
             }
 
             if (parser.getConfigFile() != null) {
-                System.err.println("DEBUG: Loading config from: " + parser.getConfigFile());
-                try (InputStream inputStream = Files.newInputStream(Paths.get(parser.getConfigFile()))) {
-                    Load load = new Load(LoadSettings.builder().build());
-                    configMap = (Map<String, Object>) load.loadFromInputStream(inputStream);
-
-                    if (configMap.containsKey("global")) {
-                        globalConfig = GlobalConfig.fromMap((Map<String, Object>) configMap.get("global"));
-                    }
-                    if (configMap.containsKey("routers")) {
-                        Object routersObj = configMap.get("routers");
-                        if (routersObj instanceof List) {
-                            List<?> rawRouterList = (List<?>) routersObj;
-                            List<Map<String, Object>> routerList = new ArrayList<>();
-                            for (Object routerObj : rawRouterList) {
-                                if (routerObj instanceof Map) {
-                                    routerList.add((Map<String, Object>) routerObj);
-                                } else {
-                                    System.err.println("ERROR: Invalid router configuration, expected Map but found: " + routerObj.getClass().getSimpleName());
-                                    return;
-                                }
-                            }
-                            for (Map<String, Object> routerMap : routerList) {
-                                routers.add(RouterConfig.fromMap(routerMap));
-                            }
-                        } else {
-                            System.err.println("ERROR: Invalid routers configuration, expected List but found: " + (routersObj != null ? routersObj.getClass().getSimpleName() : "null"));
-                            return;
-                        }
-                    } else {
-                        System.err.println("DEBUG: No routers configuration found in YAML file");
-                    }
-                    converter = new DhcpOptionConverter(globalConfig, routers, parser.isWithOption249());
-                    List<String> dhcpOptions = converter.generateDhcpOptions();
-                    outputOptions(dhcpOptions, parser, converter);
-                } catch (Exception e) {
-                    System.err.println("ERROR: Failed to load config: " + e.getMessage());
-                }
+                proceedConfigFile();
             } else if (parser.getAddDefaultMultiPool() != null) {
-                System.err.println("DEBUG: Processing addDefaultMultiPool: " + parser.getAddDefaultMultiPool());
-                RouterConfig router = new RouterConfig();
-                router.setName("default-router");
-                Map<String, PoolConfig> pools = new HashMap<>();
-                String[] poolPairs = parser.getAddDefaultMultiPool().split(",");
-                for (String poolPair : poolPairs) {
-                    String[] parts = poolPair.split(":");
-                    if (parts.length != 2) {
-                        System.err.println("ERROR: Invalid pool format: " + poolPair);
-                        continue;
-                    }
-                    String poolName = parts[0];
-                    String gateway = parts[1];
-                    PoolConfig poolConfig = new PoolConfig();
-                    poolConfig.setDefaultGateway(gateway);
-                    if (!networks.isEmpty()) {
-                        List<Map<String, String>> commonRoutes = new ArrayList<>();
-                        for (int i = 0; i < networks.size(); i++) {
-                            Map<String, String> route = new HashMap<>();
-                            route.put("network", networks.get(i));
-                            route.put("gateway", gateways.get(i));
-                            commonRoutes.add(route);
-                        }
-                        poolConfig.setCommonRoutes(commonRoutes);
-                    }
-                    pools.put(poolName, poolConfig);
-                }
-                router.setPools(pools);
-                routers.add(router);
-                converter = new DhcpOptionConverter(globalConfig, routers, parser.isWithOption249());
-                List<String> dhcpOptions = converter.generateDhcpOptions();
-                outputOptions(dhcpOptions, parser, converter);
+                proceedAddDefaultMultiPool();
             } else if (!networks.isEmpty()) {
-                converter = new DhcpOptionConverter(globalConfig, routers, parser.isWithOption249());
-                List<String> dhcpOptions = converter.generateDhcpOptions(networks, gateways, parser.isDebug(), parser.isWithWarningLoopback(), DhcpOptionConverter.Format.valueOf(parser.getFormat().toUpperCase()), parser.getJunosPoolName(), parser.getCiscoPoolName());
-                outputOptions(dhcpOptions, parser, converter);
+                proceedEmpty();
             } else if (parser.getFromDhcpOptions() != null) {
-                converter = new DhcpOptionConverter(globalConfig, routers, parser.isWithOption249());
-                List<String> routes = converter.parseDhcpOptions(parser.getFromDhcpOptions());
-                for (String route : routes) {
-                    System.out.println(route);
-                }
+                proceedFromDhcpOptions();
             } else {
                 printHelp();
             }
@@ -178,8 +106,15 @@ public class Main {
         }
     }
 
+    /**
+     * Outputs DHCP options and checks for default route warnings.
+     *
+     * @param dhcpOptions List of DHCP option strings.
+     * @param parser Argument parser with command-line options.
+     * @param converter DHCP option converter instance.
+     */
     private static void outputOptions(List<String> dhcpOptions, ArgumentParser parser, DhcpOptionConverter converter) {
-        JunosOutputFormatter formatter = new JunosOutputFormatter();
+        OutputFormatter formatter = new OutputFormatter();
         String output = formatter.format(dhcpOptions);
         System.out.println(output);
 
@@ -189,6 +124,154 @@ public class Main {
         }
     }
 
+    /**
+     * Processes a YAML configuration file to generate DHCP options.
+     */
+    private static void proceedConfigFile() {
+        try (InputStream inputStream = Files.newInputStream(Paths.get(parser.getConfigFile()))) {
+            Load load = new Load(LoadSettings.builder().build());
+            configMap = (Map<String, Object>) load.loadFromInputStream(inputStream);
+
+            if (configMap.containsKey("global")) {
+                globalConfig = GlobalConfig.fromMap((Map<String, Object>) configMap.get("global"));
+            }
+            if (configMap.containsKey("routers")) {
+                Object routersObj = configMap.get("routers");
+                if (routersObj instanceof List) {
+                    List<?> rawRouterList = (List<?>) routersObj;
+                    List<Map<String, Object>> routerList = new ArrayList<>();
+                    for (Object routerObj : rawRouterList) {
+                        if (routerObj instanceof Map) {
+                            routerList.add((Map<String, Object>) routerObj);
+                        } else {
+                            System.err.println("ERROR: Invalid router configuration, expected Map but found: " + routerObj.getClass().getSimpleName());
+                            return;
+                        }
+                    }
+                    for (Map<String, Object> routerMap : routerList) {
+                        routers.add(RouterConfig.fromMap(routerMap));
+                    }
+                } else {
+                    System.err.println("ERROR: Invalid routers configuration, expected List but found: " + (routersObj != null ? routersObj.getClass().getSimpleName() : "null"));
+                    return;
+                }
+            } else {
+                System.err.println("DEBUG: No routers configuration found in YAML file");
+            }
+            converter = new DhcpOptionConverter();
+            List<String> dhcpOptions = new ArrayList<>();
+            for (RouterConfig router : routers) {
+                for (Map.Entry<String, PoolConfig> entry : router.getPools().entrySet()) {
+                    String poolName = entry.getKey();
+                    PoolConfig pool = entry.getValue();
+                    List<String> poolNetworks = new ArrayList<>();
+                    List<String> poolGateways = new ArrayList<>();
+                    if (pool.getDefaultGateway() != null) {
+                        poolNetworks.add("0.0.0.0/0");
+                        poolGateways.add(pool.getDefaultGateway());
+                    }
+                    for (Map<String, String> route : pool.getCommonRoutes()) {
+                        poolNetworks.add(route.get("network"));
+                        poolGateways.add(route.get("gateway"));
+                    }
+                    if (!poolNetworks.isEmpty()) {
+                        dhcpOptions.addAll(converter.generateDhcpOptions(
+                            poolNetworks, poolGateways, parser.isDebug(),
+                            parser.isWithWarningLoopback(), DhcpOptionConverter.Format.JUNOS,
+                            poolName, null));
+                    }
+                }
+            }
+            outputOptions(dhcpOptions, parser, converter);
+        } catch (Exception e) {
+            System.err.println("ERROR: Failed to load config: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Processes multiple pools with default gateways.
+     */
+    private static void proceedAddDefaultMultiPool() {
+        RouterConfig router = new RouterConfig();
+        router.setName("default-router");
+        Map<String, PoolConfig> pools = new HashMap<>();
+        String[] poolPairs = parser.getAddDefaultMultiPool().split(",");
+        for (String poolPair : poolPairs) {
+            String[] parts = poolPair.split(":");
+            if (parts.length != 2) {
+                System.err.println("ERROR: Invalid pool format: " + poolPair);
+                continue;
+            }
+            String poolName = parts[0];
+            String gateway = parts[1];
+            PoolConfig poolConfig = new PoolConfig();
+            poolConfig.setDefaultGateway(gateway);
+            if (!networks.isEmpty()) {
+                List<Map<String, String>> commonRoutes = new ArrayList<>();
+                for (int i = 0; i < networks.size(); i++) {
+                    Map<String, String> route = new HashMap<>();
+                    route.put("network", networks.get(i));
+                    route.put("gateway", gateways.get(i));
+                    commonRoutes.add(route);
+                }
+                poolConfig.setCommonRoutes(commonRoutes);
+            }
+            pools.put(poolName, poolConfig);
+        }
+        router.setPools(pools);
+        routers.add(router);
+        converter = new DhcpOptionConverter();
+        List<String> dhcpOptions = new ArrayList<>();
+        for (RouterConfig r : routers) {
+            for (Map.Entry<String, PoolConfig> entry : r.getPools().entrySet()) {
+                String poolName = entry.getKey();
+                PoolConfig pool = entry.getValue();
+                List<String> poolNetworks = new ArrayList<>();
+                List<String> poolGateways = new ArrayList<>();
+                if (pool.getDefaultGateway() != null) {
+                    poolNetworks.add("0.0.0.0/0");
+                    poolGateways.add(pool.getDefaultGateway());
+                }
+                for (Map<String, String> route : pool.getCommonRoutes()) {
+                    poolNetworks.add(route.get("network"));
+                    poolGateways.add(route.get("gateway"));
+                }
+                if (!poolNetworks.isEmpty()) {
+                    dhcpOptions.addAll(converter.generateDhcpOptions(
+                        poolNetworks, poolGateways, parser.isDebug(),
+                        parser.isWithWarningLoopback(), DhcpOptionConverter.Format.JUNOS,
+                        poolName, null));
+                }
+            }
+        }
+        outputOptions(dhcpOptions, parser, converter);
+    }
+
+    /**
+     * Processes network/gateway pairs from command-line arguments.
+     */
+    private static void proceedEmpty() {
+        converter = new DhcpOptionConverter();
+        List<String> dhcpOptions = converter.generateDhcpOptions(networks, gateways, parser.isDebug(),
+                parser.isWithWarningLoopback(), DhcpOptionConverter.Format.valueOf(parser.getFormat().toUpperCase()),
+                parser.getJunosPoolName(), parser.getCiscoPoolName());
+        outputOptions(dhcpOptions, parser, converter);
+    }
+
+    /**
+     * Parses a hexadecimal DHCP option string into network/gateway pairs.
+     */
+    private static void proceedFromDhcpOptions() {
+        converter = new DhcpOptionConverter();
+        List<String> routes = converter.parseDhcpOptions(parser.getFromDhcpOptions());
+        for (String route : routes) {
+            System.out.println("Route: " + route);
+        }
+    }
+
+    /**
+     * Prints the help message with usage instructions.
+     */
     private static void printHelp() {
         System.out.println("DhcpRouteConverter - A utility to convert network routes to DHCP options 121/249 and vice versa.");
         System.out.println();

@@ -14,8 +14,6 @@ routers:
     pools:
       rhoh15pool_static1:
         default-gateway: 94.176.198.97
-      rhoh15_graypool1:
-        default-gateway: 10.255.103.241
       rhoh15pool_static2:
         default-gateway: 94.176.199.17
       rhoh15pool_static3:
@@ -156,18 +154,19 @@ routers:
         default-gateway: 94.176.196.129
       rf102zpool_static4:
         default-gateway: 212.90.162.161
-  - name: rdc-1-re0
+  - name: rdc-1
     pools:
       rdcpool1:
         default-gateway: 94.176.198.65
       rdcpool_static1:
         default-gateway: 94.176.199.129
+        common-routes:
+          - network: 10.254.0.0/15
+            gateway: 212.90.176.97
       rdcpool2:
         default-gateway: 212.90.176.97
       rdcpool_static2:
         default-gateway: 212.90.161.129
-      rdc_graypool1:
-        default-gateway: 10.255.201.145
       rdcpool_static3:
         default-gateway: 212.90.186.161
       rdcpool_static4:
