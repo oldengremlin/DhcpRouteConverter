@@ -60,4 +60,49 @@ public class JUNOS extends outputFormatAbstract implements outputFormatInterface
 
         return results;
     }
+
+    private String buildNetconfGetRequest(String poolName) {
+        return "<rpc>"
+                + "<get-configuration>"
+                + " <configuration>"
+                + "  <access>"
+                + "   <address-assignment>"
+                + "    <pool>"
+                + "     <name>" + poolName + "</name>"
+                + "    </pool>"
+                + "   </address-assignment>"
+                + "  </access>"
+                + " </configuration>"
+                + "</get-configuration>"
+                + "</rpc>";
+    }
+
+    private String buildNetconfEditRequest(String poolName, String hexValue) {
+        return "<rpc>"
+                + "<edit-configuration>"
+                + " <target>"
+                + "  <candidate/>"
+                + " </target>"
+                + " <config>"
+                + "  <access>"
+                + "   <address-assignment>"
+                + "    <pool>"
+                + "     <name>" + poolName + "</name>"
+                + "     <family>"
+                + "      <inet>"
+                + "       <dhcp-attributes>"
+                + "        <option>"
+                + "         <name>121</name>"
+                + "         <value>0x" + hexValue + "</value>"
+                + "        </option>"
+                + "       </dhcp-attributes>"
+                + "      </inet>"
+                + "     </family>"
+                + "    </pool>"
+                + "   </address-assignment>"
+                + "  </access>"
+                + " </config>"
+                + "</edit-configuration>"
+                + "</rpc>";
+    }
 }
