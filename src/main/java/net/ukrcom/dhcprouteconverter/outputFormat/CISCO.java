@@ -17,15 +17,20 @@ package net.ukrcom.dhcprouteconverter.outputFormat;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.ukrcom.dhcprouteconverter.ApplyMethod;
 
 /**
  *
  * @author olden
  */
-public class CISCO extends outputFormatAbstract implements outputFormat {
+public class CISCO extends outputFormatAbstract implements outputFormatInterface {
 
     public CISCO(String aggregateHex, boolean withOption249, String poolName) {
         super(aggregateHex, withOption249, poolName);
+    }
+
+    public CISCO(String config, String username, String password, ApplyMethod method) {
+        super(config, username, password, method);
     }
 
     /**

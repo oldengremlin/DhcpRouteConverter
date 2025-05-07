@@ -41,7 +41,7 @@ public class OutputFormatter {
             return results;
         }
 
-        net.ukrcom.dhcprouteconverter.outputFormat.outputFormat of = null;
+        net.ukrcom.dhcprouteconverter.outputFormat.outputFormatInterface of = null;
 
         switch (format) {
             case DEFAULT -> {
@@ -88,14 +88,84 @@ public class OutputFormatter {
     }
 
     /**
-     * Applies the configuration to a device (not implemented).
+     * Get configuration from devices.
      *
      * @param config Configuration string.
      * @param username Username for authentication.
      * @param password Password for authentication.
+     * @param format Output format (e.g., ISC, JUNOS, CISCO).
      * @param method Application method.
      */
-    public void apply(String config, String username, String password, ApplyMethod method) {
-        System.err.println("DEBUG: Applying config via " + method + " (username: " + username + ") - not implemented yet");
+    public void getConfig(String config, String username, String password, Format format, ApplyMethod method) {
+
+        net.ukrcom.dhcprouteconverter.outputFormat.outputFormatInterface of = null;
+
+        switch (format) {
+            case DEFAULT -> {
+                of = new DEFAULT(config, username, password, method);
+            }
+            case ISC -> {
+                of = new ISC(config, username, password, method);
+            }
+            case ROUTEROS -> {
+                of = new ROUTEROS(config, username, password, method);
+            }
+            case JUNOS -> {
+                of = new JUNOS(config, username, password, method);
+            }
+            case CISCO -> {
+                of = new CISCO(config, username, password, method);
+            }
+            case WINDOWS -> {
+                of = new WINDOWS(config, username, password, method);
+            }
+            default ->
+                throw new AssertionError("Unknown format: " + format);
+        }
+
+        if (of != null) {
+            List<String> currentConfig = of.getConfig();
+        }
+    }
+
+    /**
+     * Applies the configuration to a devices.
+     *
+     * @param config Configuration string.
+     * @param username Username for authentication.
+     * @param password Password for authentication.
+     * @param format Output format (e.g., ISC, JUNOS, CISCO).
+     * @param method Application method.
+     */
+    public void applyConfig(String config, String username, String password, Format format, ApplyMethod method) {
+
+        net.ukrcom.dhcprouteconverter.outputFormat.outputFormatInterface of = null;
+
+        switch (format) {
+            case DEFAULT -> {
+                of = new DEFAULT(config, username, password, method);
+            }
+            case ISC -> {
+                of = new ISC(config, username, password, method);
+            }
+            case ROUTEROS -> {
+                of = new ROUTEROS(config, username, password, method);
+            }
+            case JUNOS -> {
+                of = new JUNOS(config, username, password, method);
+            }
+            case CISCO -> {
+                of = new CISCO(config, username, password, method);
+            }
+            case WINDOWS -> {
+                of = new WINDOWS(config, username, password, method);
+            }
+            default ->
+                throw new AssertionError("Unknown format: " + format);
+        }
+
+        if (of != null) {
+            of.applyConfig();
+        }
     }
 }

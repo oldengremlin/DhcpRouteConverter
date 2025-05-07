@@ -29,12 +29,16 @@ public class ArgumentParser {
     private String ciscoPoolName;
     private boolean withOption249;
     private final String[] args;
+    private boolean getConfig;
+    private boolean applyConfig;
 
     public ArgumentParser(String[] args) {
         this.junosPoolName = "lan-pool";
         this.ciscoPoolName = "mypool";
         this.format = "default";
         this.withOption249 = false;
+        this.getConfig = false;
+        this.applyConfig = false;
         this.args = args;
         parse();
     }
@@ -59,6 +63,10 @@ public class ArgumentParser {
                 withWarningLoopback = true;
             } else if (arg.equals("--with-option-249")) {
                 withOption249 = true;
+            } else if (arg.equals("--get-config")) {
+                getConfig = true;
+            } else if (arg.equals("--apply-config")) {
+                applyConfig = true;
             } else if ((arg.equals("--to-dhcp-options") || arg.equals("-tdo"))) {
                 int argIndex = i + 1;
                 if (argIndex < this.args.length && this.args[argIndex].equals("-d")) {
@@ -153,6 +161,14 @@ public class ArgumentParser {
 
     public boolean isWithOption249() {
         return withOption249;
+    }
+
+    public boolean isGetConfig() {
+        return getConfig;
+    }
+
+    public boolean isApplyConfig() {
+        return applyConfig;
     }
 
     private void sayCommonRoutesError() {

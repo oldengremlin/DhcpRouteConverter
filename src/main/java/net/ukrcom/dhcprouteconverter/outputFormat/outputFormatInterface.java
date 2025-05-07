@@ -21,7 +21,7 @@ import java.util.List;
  *
  * @author olden
  */
-public interface outputFormat {
+public interface outputFormatInterface {
 
     /**
      * Formats DHCP options for the specified format.
@@ -29,4 +29,16 @@ public interface outputFormat {
      * @return List of formatted DHCP option strings.
      */
     public List<String> formatDhcpOptions();
+
+    /**
+     * Get configuration from devices.
+     *
+     * @return
+     */
+    public List<String> getConfig();
+
+    /**
+     * Applies the configuration to a devices.
+     */
+    public void applyConfig();
 }
