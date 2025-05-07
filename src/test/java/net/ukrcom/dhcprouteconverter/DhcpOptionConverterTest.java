@@ -39,7 +39,7 @@ public class DhcpOptionConverterTest {
     private DhcpOptionConverter converter;
     private GlobalConfig globalConfig;
     private List<RouterConfig> routers;
-    private OutputFormatter formatter;
+    //private OutputFormatter formatter;
 
     @BeforeEach
     public void setUp() {
@@ -67,7 +67,7 @@ public class DhcpOptionConverterTest {
 
         routers = Collections.singletonList(router);
         converter = new DhcpOptionConverter();
-        formatter = new OutputFormatter();
+        //formatter = new OutputFormatter();
     }
 
     @Test

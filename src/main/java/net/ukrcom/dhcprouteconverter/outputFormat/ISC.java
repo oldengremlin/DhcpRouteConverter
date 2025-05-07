@@ -17,15 +17,20 @@ package net.ukrcom.dhcprouteconverter.outputFormat;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.ukrcom.dhcprouteconverter.ApplyMethod;
 
 /**
  *
  * @author olden
  */
-public class ISC extends outputFormatAbstract implements outputFormat {
+public class ISC extends outputFormatAbstract implements outputFormatInterface {
 
     public ISC(String aggregateHex, boolean withOption249, String poolName) {
         super(aggregateHex, withOption249, poolName);
+    }
+
+    public ISC(String config, String username, String password, ApplyMethod method) {
+        super(config, username, password, method);
     }
 
     /**

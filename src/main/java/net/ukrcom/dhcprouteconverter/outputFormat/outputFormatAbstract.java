@@ -17,19 +17,27 @@ package net.ukrcom.dhcprouteconverter.outputFormat;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.ukrcom.dhcprouteconverter.ApplyMethod;
 
 /**
  *
  * @author olden
  */
-public abstract class outputFormatAbstract implements outputFormat {
+public abstract class outputFormatAbstract implements outputFormatInterface {
 
+    // Variables for formatDhcpOptions()
     protected String aggregateHex;
     protected boolean withOption249;
     protected String poolName;
 
+    // Variables for applyConfig()
+    protected String config;
+    protected String username;
+    protected String password;
+    protected ApplyMethod method;
+
     /**
-     * Default constructor
+     * Constructor for formatDhcpOptions
      *
      * @param aggregateHex Hexadecimal string of DHCP options.
      * @param withOption249 If true, includes option 249 (Microsoft-specific).
@@ -39,6 +47,21 @@ public abstract class outputFormatAbstract implements outputFormat {
         this.aggregateHex = aggregateHex;
         this.withOption249 = withOption249;
         this.poolName = poolName;
+    }
+
+    /**
+     * Constructor for applyConfig()
+     *
+     * @param config Configuration string.
+     * @param username Username for authentication.
+     * @param password Password for authentication.
+     * @param method Application method.
+     */
+    outputFormatAbstract(String config, String username, String password, ApplyMethod method) {
+        this.config = config;
+        this.username = username;
+        this.password = password;
+        this.method = method;
     }
 
     /**
@@ -55,4 +78,22 @@ public abstract class outputFormatAbstract implements outputFormat {
         return results;
     }
 
+    /**
+     * Get configuration from devices.
+     *
+     * @return
+     */
+    @Override
+    public List<String> getConfig() {
+        System.err.println("[outputFormatAbstract.getConfig]");
+        return null;
+    }
+
+    /**
+     * Applies the configuration to a devices.
+     */
+    @Override
+    public void applyConfig() {
+        System.err.println("[outputFormatAbstract.apply] " + config + ", " + username + ", " + password + ", " + method);
+    }
 }
