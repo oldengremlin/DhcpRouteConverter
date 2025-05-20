@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>net.ukr-com</groupId>
     <artifactId>DhcpRouteConverter</artifactId>
-    <version>2.1.1</version>
+    <version>3.0.0</version>
     <packaging>jar</packaging>
     <name>DhcpRouteConverter</name>
     <description>A utility to convert network routes to DHCP options 121 and 249 and vice versa</description>
@@ -33,6 +33,31 @@
             <artifactId>snakeyaml-engine</artifactId>
             <version>2.9</version>
         </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.17</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>2.0.17</version>
+        </dependency>
+        <dependency>
+            <groupId>net.juniper.netconf</groupId>
+            <artifactId>netconf-java</artifactId>
+            <version>2.1.1.7</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.mwiede</groupId>
+            <artifactId>jsch</artifactId>
+            <version>2.27.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.80</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
@@ -50,14 +75,52 @@
                 <version>3.4.2</version>
                 <configuration>
                     <archive>
-                        <manifest>
-                            <addClasspath>true</addClasspath>
-                            <mainClass>${exec.mainClass}</mainClass>
-                        </manifest>
+                        <addMavenDescriptor>false</addMavenDescriptor>
                     </archive>
-                    <outputDirectory>${project.build.directory}</outputDirectory>
-                    <finalName>${project.artifactId}</finalName>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>default-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <finalName>${project.artifactId}-${project.version}</finalName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <createSourcesJar>false</createSourcesJar>
+                            <shadeTestJar>false</shadeTestJar>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>net.ukrcom.dhcprouteconverter.Main</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -67,10 +130,10 @@
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
-                    <systemPropertyVariables>
-                        <!-- No system properties needed, but explicit declaration suppresses deprecated warning -->
-                    </systemPropertyVariables>
-                </configuration>
+                    <argLine>-Xmx512m</argLine>
+                    <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                    <trimStackTrace>false</trimStackTrace>
+                </configuration>            
             </plugin>
             <plugin>
                 <groupId>org.graalvm.buildtools</groupId>
@@ -89,12 +152,127 @@
                 <configuration>
                     <mainClass>${exec.mainClass}</mainClass>
                     <imageName>${project.artifactId}</imageName>
+                    <outputDirectory>${project.build.directory}</outputDirectory>
                     <buildArgs>
-                        <buildArg>--no-fallback</buildArg>
-                        <buildArg>-H:+ReportExceptionStackTraces</buildArg>
-                        <buildArg>--gc=G1</buildArg>
+                        <buildArg>--verbose</buildArg>
+                        <buildArg>-J-Xmx4g</buildArg>
+                        <buildArg>--link-at-build-time</buildArg>
                         <buildArg>-march=x86-64</buildArg>
+                        <buildArg>--gc=G1</buildArg>
                         <buildArg>-H:+AddAllCharsets</buildArg>
+                        <buildArg>-H:+JNI</buildArg>
+                        <buildArg>-H:+PrintClassInitialization</buildArg>
+                        <buildArg>-H:+ReportExceptionStackTraces</buildArg>
+                        <buildArg>-H:+ReportUnsupportedElementsAtRuntime</buildArg>
+                        <buildArg>-H:TraceClassInitialization=true</buildArg>
+                        <!-- JSch classes -->
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.AES128CBC</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.AES128CTR</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.AES128GCM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.AES192CBC</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.AES192CTR</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.AES256CBC</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.AES256CTR</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.AES256GCM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.AESGCM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.ARCFOUR</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.ARCFOUR128</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.ARCFOUR256</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.BlowfishCBC</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.BlowfishCTR</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.DH</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.ECDH256</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.ECDH384</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.ECDH521</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.ECDHN</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMAC</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACMD5</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACMD596</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACMD596ETM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACMD5ETM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA1</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA196</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA196ETM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA1ETM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA224SSHCOM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA256</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA2562SSHCOM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA256ETM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA256SSHCOM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA384SSHCOM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA512</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA512ETM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.HMACSHA512SSHCOM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.KeyPairGenDSA</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.KeyPairGenECDSA</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.KeyPairGenEdDSA</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.KeyPairGenRSA</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.MD5</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.MLKEM1024</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.MLKEM768</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.PBKDF2</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.Random</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SHA1</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SHA224</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SHA256</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SHA384</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SHA512</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureDSA</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureECDSA256</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureECDSA384</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureECDSA521</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureECDSAN</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureEd25519</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureEd448</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureRSA</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureRSAN</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureRSASHA224SSHCOM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureRSASHA256</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureRSASHA256SSHCOM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureRSASHA384SSHCOM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureRSASHA512</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.SignatureRSASHA512SSHCOM</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.TripleDESCBC</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.TripleDESCTR</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.Util</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.jce.XDH</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.DHEC256</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.DHEC384</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.DHEC521</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.DHGEX256</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.DHGEX</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.UserAuthNone</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.UserAuthPassword</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.UserAuthPublicKey</buildArg>
+                        <buildArg>--initialize-at-build-time=com.jcraft.jsch.UserAuthKeyboardInteractive</buildArg>
+                        <!-- XML parsing classes -->
+                        <buildArg>--initialize-at-build-time=javax.xml.parsers.DocumentBuilderFactory</buildArg>
+                        <buildArg>--initialize-at-build-time=javax.xml.parsers.DocumentBuilder</buildArg>
+                        <buildArg>--initialize-at-build-time=org.w3c.dom.Document</buildArg>
+                        <buildArg>--initialize-at-build-time=org.w3c.dom.Element</buildArg>
+                        <buildArg>--initialize-at-build-time=org.w3c.dom.NodeList</buildArg>
+                        <!-- Run-time initialization -->
+                        <buildArg>--initialize-at-run-time=com.jcraft.jsch.PortWatcher</buildArg>
+                        <buildArg>--initialize-at-run-time=net.juniper.netconf.Device</buildArg>
+                        <buildArg>--initialize-at-run-time=net.juniper.netconf.element.Hello</buildArg>
+                        <buildArg>--initialize-at-run-time=net.juniper.netconf.element.RpcReply</buildArg>
+                        <buildArg>--initialize-at-run-time=net.juniper.netconf.XML</buildArg>
+                        <buildArg>--initialize-at-run-time=org.slf4j.helpers.Reporter</buildArg>
+                        <buildArg>--initialize-at-run-time=org.slf4j.simple.SimpleLogger</buildArg>
+                        <buildArg>--initialize-at-run-time=org.slf4j.LoggerFactory</buildArg>
+                        <buildArg>--initialize-at-run-time=org.slf4j.simple.SimpleLoggerFactory</buildArg>
+                        <!-- Trace for debugging -->
+                        <buildArg>--trace-class-initialization=org.slf4j.helpers.Reporter,org.slf4j.simple.SimpleLogger,org.slf4j.LoggerFactory,org.slf4j.simple.SimpleLoggerFactory</buildArg>
+                        <!-- After 
+                            $ java -agentlib:native-image-agent=config-output-dir=src/main/resources/META-INF/native-image \
+                                -jar target/DhcpRouteConverter-2.1.1.jar \
+                                - -config=routers.yaml - -read 
+                        -->
+                        <buildArg>--initialize-at-run-time=com.jcraft.jsch.bc.MLKEM</buildArg>
+                        <buildArg>--initialize-at-run-time=com.jcraft.jsch.bc.SNTRUP761</buildArg>
+                        <buildArg>--initialize-at-run-time=com.jcraft.jsch.bc.SignatureEdDSA</buildArg>
                     </buildArgs>
                 </configuration>
             </plugin>
@@ -113,9 +291,7 @@
                 <configuration>
                     <deb>${project.build.directory}/${project.artifactId}_${project.version}_all.deb</deb>
                     <controlDir>${project.basedir}/src/deb/control</controlDir>
-                    <variables>
-                        <version>${project.version}</version>
-                    </variables>
+                    <version>${project.version}</version>
                     <dataSet>
                         <data>
                             <src>${project.build.directory}/${project.artifactId}</src>
@@ -133,9 +309,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-install-plugin</artifactId>
                 <version>3.1.4</version>
-                <configuration>
-                    <file>${project.build.directory}/${project.artifactId}-${project.version}.jar</file>
-                </configuration>
             </plugin>
         </plugins>
     </build>

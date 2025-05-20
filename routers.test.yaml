@@ -1,0 +1,22 @@
+global:
+  username: noc_nl
+  password: NocSuper!Password#
+  apply-method: NETCONF
+  append-routes:
+    - network: 10.0.0.0/8
+      gateway: 127.0.0.10
+    - network: 172.16.0.0/12
+      gateway: 127.0.0.172
+    - network: 192.168.0.0/16
+      gateway: 127.0.0.192
+routers:
+  - name: rdnepr-1
+    pools:
+      rdneprpool_static1:
+        default-gateway: 212.90.160.145
+      rdneprpool_static2:
+        default-gateway: 212.90.162.209
+      rdneprpool1:
+        default-gateway: 212.90.166.129
+      rdneprpool_static3:
+        default-gateway: 212.90.161.161

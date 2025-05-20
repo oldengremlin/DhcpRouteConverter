@@ -24,6 +24,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import net.ukrcom.dhcprouteconverter.outputFormat.JUNOS;
+import org.slf4j.simple.SimpleLogger;
 
 /**
  * Main class for the DhcpRouteConverter utility, which converts network routes
@@ -31,13 +34,15 @@ import java.util.Map;
  */
 public class Main {
 
-    private static ArgumentParser parser;
+    private static ArgumentParser parseArguments;
     private static Map<String, Object> configMap;
     private static GlobalConfig globalConfig;
     private static List<RouterConfig> routers;
     private static DhcpOptionConverter converter;
     private static List<String> networks;
     private static List<String> gateways;
+    private static Map<String, RouterDeviceConfig> routerDeviceConfigs;
+    private static final List<PoolUpdate> updatedPools = new ArrayList<>();
 
     /**
      * Entry point for the DhcpRouteConverter utility.
@@ -51,14 +56,23 @@ public class Main {
                 return;
             }
 
-            parser = new ArgumentParser(args);
+            parseArguments = new ArgumentParser(args);
+
+            // Set SLF4J log level based on --debug flag
+            if (parseArguments.isDebug()) {
+                System.setProperty(SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "debug");
+                System.setProperty("org.slf4j.simpleLogger.log.net.juniper.netconf", "debug");
+            } else {
+                System.setProperty(SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "warn");
+                System.setProperty("org.slf4j.simpleLogger.log.net.juniper.netconf", "warn");
+            }
 
             // Check for mutually exclusive options
-            if (parser.getAddDefaultGateway() != null && parser.getAddDefaultMultiPool() != null) {
+            if (parseArguments.getAddDefaultGateway() != null && parseArguments.getAddDefaultMultiPool() != null) {
                 System.err.println("ERROR: --add-default-gateway and --add-default-multi-pool cannot be used together");
                 return;
             }
-            if (parser.getConfigFile() != null && (parser.getAddDefaultMultiPool() != null || parser.getCommonRoutes() != null || parser.getAddDefaultGateway() != null)) {
+            if (parseArguments.getConfigFile() != null && (parseArguments.getAddDefaultMultiPool() != null || parseArguments.getCommonRoutes() != null || parseArguments.getAddDefaultGateway() != null)) {
                 System.err.println("ERROR: --config cannot be used with --add-default-multi-pool, --add-default-gateway, or --common-routes");
                 return;
             }
@@ -66,14 +80,15 @@ public class Main {
             configMap = new HashMap<>();
             globalConfig = new GlobalConfig();
             routers = new ArrayList<>();
+            routerDeviceConfigs = new HashMap<>();
 
             // Collect networks and gateways from all sources
             networks = new ArrayList<>();
             gateways = new ArrayList<>();
 
             // Process --common-routes (processed after to-dhcp-options)
-            if (parser.getCommonRoutes() != null) {
-                String[] routes = parser.getCommonRoutes().split(",");
+            if (parseArguments.getCommonRoutes() != null) {
+                String[] routes = parseArguments.getCommonRoutes().split(",");
                 if (routes.length % 2 != 0) {
                     System.err.println("ERROR: Incomplete network/gateway pair in --common-routes");
                     return;
@@ -85,18 +100,18 @@ public class Main {
             }
 
             // Process --add-default-gateway (processed after common-routes)
-            if (parser.getAddDefaultGateway() != null) {
+            if (parseArguments.getAddDefaultGateway() != null) {
                 networks.add("0.0.0.0/0");
-                gateways.add(parser.getAddDefaultGateway());
+                gateways.add(parseArguments.getAddDefaultGateway());
             }
 
-            if (parser.getConfigFile() != null) {
+            if (parseArguments.getConfigFile() != null) {
                 proceedConfigFile();
-            } else if (parser.getAddDefaultMultiPool() != null) {
+            } else if (parseArguments.getAddDefaultMultiPool() != null) {
                 proceedAddDefaultMultiPool();
             } else if (!networks.isEmpty()) {
                 proceedEmpty();
-            } else if (parser.getFromDhcpOptions() != null) {
+            } else if (parseArguments.getFromDhcpOptions() != null) {
                 proceedFromDhcpOptions();
             } else {
                 printHelp();
@@ -111,14 +126,14 @@ public class Main {
      * Outputs DHCP options and checks for default route warnings.
      *
      * @param dhcpOptions List of DHCP option strings.
-     * @param parser Argument parser with command-line options.
+     * @param configArguments Argument parseArguments with command-line options.
      * @param converter DHCP option converter instance.
      */
-    private static void outputOptions(List<String> dhcpOptions, ArgumentParser parser, DhcpOptionConverter converter) {
+    private static void outputOptions(List<String> dhcpOptions, ArgumentParser configArguments, DhcpOptionConverter converter) {
         String output = new OutputFormatter().format(dhcpOptions);
         System.out.println(output);
 
-        if (!parser.isWithoutWarnNoDefaultRoute() && !converter.hasDefaultRoute()) {
+        if (!configArguments.isWithoutWarnNoDefaultRoute() && !converter.hasDefaultRoute()) {
             System.err.println("Warning: No default route (0.0.0.0/0) specified in option 121. "
                     + "Clients like MikroTik may ignore option 3 (Router) per RFC 3442, causing loss of Internet access.");
         }
@@ -128,75 +143,410 @@ public class Main {
      * Processes a YAML configuration file to generate DHCP options.
      */
     private static void proceedConfigFile() {
-        try (InputStream inputStream = Files.newInputStream(Paths.get(parser.getConfigFile()))) {
-            Load load = new Load(LoadSettings.builder().build());
-            configMap = (Map<String, Object>) load.loadFromInputStream(inputStream);
-
-            if (configMap.containsKey("global")) {
-                globalConfig = GlobalConfig.fromMap((Map<String, Object>) configMap.get("global"));
+        try {
+            // Парсинг YAML
+            configMap = parseYamlConfig(parseArguments.getConfigFile(), parseArguments);
+            if (configMap == null) {
+                logError("YAML file is empty or invalid");
+                return;
             }
-            if (configMap.containsKey("routers")) {
-                Object routersObj = configMap.get("routers");
-                if (routersObj instanceof List) {
-                    List<?> rawRouterList = (List<?>) routersObj;
-                    List<Map<String, Object>> routerList = new ArrayList<>();
-                    for (Object routerObj : rawRouterList) {
-                        if (routerObj instanceof Map) {
-                            routerList.add((Map<String, Object>) routerObj);
-                        } else {
-                            System.err.println("ERROR: Invalid router configuration, expected Map but found: " + routerObj.getClass().getSimpleName());
-                            return;
+
+            // Ініціалізація конфігурацій
+            if (!initializeConfigs(configMap, parseArguments)) {
+                return;
+            }
+
+            // Отримання конфігурацій через NETCONF, якщо задано --read
+            if (parseArguments.isNetconfRead() && globalConfig.getApplyMethod() == ApplyMethod.NETCONF) {
+                fetchRemoteConfigs(routers, routerDeviceConfigs, parseArguments, globalConfig);
+            }
+
+            // Порівняння та оновлення пулів
+            compareAndUpdatePools(routers, routerDeviceConfigs, parseArguments);
+
+            // Генерація та вивід DHCP опцій
+            List<String> dhcpOptions = generateDhcpOptions(routers, parseArguments);
+            outputOptions(dhcpOptions, parseArguments, converter);
+        } catch (Exception e) {
+            logError("Failed to load config: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+            if (parseArguments.isDebug()) {
+                e.printStackTrace(System.err);
+            }
+        }
+    }
+
+    /**
+     * Parses the YAML configuration file.
+     *
+     * @param configFile Path to the YAML file.
+     * @param configArguments Argument parseArguments for debug logging.
+     * @return Parsed configuration map or null if invalid.
+     */
+    private static Map<String, Object> parseYamlConfig(String configFile, ArgumentParser configArguments) {
+        try (InputStream inputStream = Files.newInputStream(Paths.get(configFile))) {
+            Load load = new Load(LoadSettings.builder().build());
+            if (configArguments.isDebug()) {
+                System.err.println("DEBUG: Loading YAML file: " + configFile);
+            }
+            Map<String, Object> configMap = (Map<String, Object>) load.loadFromInputStream(inputStream);
+            if (configArguments.isDebug() && configMap != null) {
+                System.err.println("DEBUG: configMap loaded: " + configMap.keySet());
+            }
+            return configMap;
+        } catch (Exception e) {
+            logError("Failed to parse YAML file: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+            return null;
+        }
+    }
+
+    /**
+     * Initializes globalConfig and routers from the configuration map.
+     *
+     * @param configMap Parsed YAML configuration.
+     * @param configArguments Argument parseArguments for debug logging.
+     * @return True if initialization is successful, false otherwise.
+     */
+    private static boolean initializeConfigs(Map<String, Object> configMap, ArgumentParser configArguments) {
+        // Ініціалізація globalConfig
+        if (configMap.containsKey("global")) {
+            try {
+                globalConfig = GlobalConfig.fromMap((Map<String, Object>) configMap.get("global"));
+                if (configArguments.isDebug()) {
+                    System.err.println("DEBUG: GlobalConfig initialized: username=" + globalConfig.getUsername());
+                }
+            } catch (Exception e) {
+                logError("Failed to parse global config: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+                return false;
+            }
+        } else if (configArguments.isDebug()) {
+            System.err.println("DEBUG: No global configuration found in YAML");
+        }
+
+        // Ініціалізація routers
+        if (configMap.containsKey("routers")) {
+            Object routersObj = configMap.get("routers");
+            if (routersObj instanceof List) {
+                List<?> rawRouterList = (List<?>) routersObj;
+                List<Map<String, Object>> routerList = new ArrayList<>();
+                for (Object routerObj : rawRouterList) {
+                    if (routerObj instanceof Map) {
+                        routerList.add((Map<String, Object>) routerObj);
+                    } else {
+                        logError("Invalid router configuration, expected Map but found: " + (routerObj != null ? routerObj.getClass().getSimpleName() : "null"));
+                        return false;
+                    }
+                }
+                for (Map<String, Object> routerMap : routerList) {
+                    try {
+                        RouterConfig router = RouterConfig.fromMap(routerMap);
+                        routers.add(router);
+                        if (configArguments.isDebug()) {
+                            System.err.println("DEBUG: Added router: " + router.getName());
                         }
+                    } catch (Exception e) {
+                        logError("Failed to parse router config: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+                        return false;
                     }
-                    for (Map<String, Object> routerMap : routerList) {
-                        routers.add(RouterConfig.fromMap(routerMap));
-                    }
-                } else {
-                    System.err.println("ERROR: Invalid routers configuration, expected List but found: " + (routersObj != null ? routersObj.getClass().getSimpleName() : "null"));
-                    return;
                 }
             } else {
-                if (parser.isDebug()) {
-                    System.err.println("DEBUG: No routers configuration found in YAML file");
-                }
+                logError("Invalid routers configuration, expected List but found: " + (routersObj != null ? routersObj.getClass().getSimpleName() : "null"));
+                return false;
             }
-            converter = new DhcpOptionConverter();
-            List<String> dhcpOptions = new ArrayList<>();
-            for (RouterConfig router : routers) {
-                for (Map.Entry<String, PoolConfig> entry : router.getPools().entrySet()) {
-                    String poolName = entry.getKey();
-                    PoolConfig pool = entry.getValue();
+        } else if (configArguments.isDebug()) {
+            System.err.println("DEBUG: No routers configuration found in YAML file");
+        }
+        return true;
+    }
+
+    /**
+     * Fetches remote pool configurations via NETCONF for all routers.
+     *
+     * @param routers List of router configurations.
+     * @param routerDeviceConfigs Map to store router device configurations.
+     * @param configArguments Argument parseArguments for debug logging.
+     * @param globalConfig Global configuration for credentials and apply
+     * method.
+     */
+    private static void fetchRemoteConfigs(List<RouterConfig> routers, Map<String, RouterDeviceConfig> routerDeviceConfigs, ArgumentParser configArguments, GlobalConfig globalConfig) {
+        for (RouterConfig router : routers) {
+            if (router.getName() == null) {
+                logError("Router name is null in YAML configuration");
+                continue;
+            }
+            RouterDeviceConfig deviceConfig = new RouterDeviceConfig(
+                    router.getName(),
+                    globalConfig.getUsername() != null ? globalConfig.getUsername() : "",
+                    globalConfig.getPassword() != null ? globalConfig.getPassword() : "",
+                    globalConfig.getApplyMethod()
+            );
+            routerDeviceConfigs.put(router.getName(), deviceConfig);
+            if (configArguments.isDebug()) {
+                System.err.println("DEBUG: Processing NETCONF for router: " + router.getName());
+            }
+            OutputFormatter formatter = new OutputFormatter();
+            net.ukrcom.dhcprouteconverter.outputFormat.outputFormatInterface of = new JUNOS(
+                    "", globalConfig.getUsername(), globalConfig.getPassword(), ApplyMethod.NETCONF, configArguments
+            );
+            Map<String, PoolDeviceConfig> remotePools = of.getConfig(router.getName(), deviceConfig);
+            deviceConfig.getPools().putAll(remotePools);
+        }
+    }
+
+    /**
+     * Compares YAML and NETCONF configurations and updates pools if needed.
+     *
+     * @param routers List of router configurations.
+     * @param routerDeviceConfigs Map of router device configurations.
+     * @param configArguments Argument parseArguments for debug logging.
+     */
+    private static void compareAndUpdatePools(List<RouterConfig> routers, Map<String, RouterDeviceConfig> routerDeviceConfigs, ArgumentParser configArguments) {
+        converter = new DhcpOptionConverter(configArguments);
+        boolean hasDefaultRoute = false; // Локальна змінна для відстеження дефолтного маршруту
+
+        for (RouterConfig router : routers) {
+            RouterDeviceConfig deviceConfig = routerDeviceConfigs.get(router.getName());
+            if (deviceConfig == null) {
+                continue;
+            }
+            for (String poolName : deviceConfig.getPools().keySet()) {
+                PoolDeviceConfig remotePool = deviceConfig.getPools().get(poolName);
+                if (remotePool == null) {
+                    if (configArguments.isDebug()) {
+                        System.err.println("DEBUG: Remote pool " + poolName + " is null for router " + router.getName());
+                    }
+                    continue;
+                }
+                if (router.getPools().containsKey(poolName)) {
+                    PoolConfig yamlPool = router.getPools().get(poolName);
+                    String yamlGateway = yamlPool.getDefaultGateway();
+                    String remoteGateway = remotePool.getDefaultGateway();
+                    String remoteOption121 = remotePool.getOption121();
+
+                    // Перевіряємо наявність default-gateway для встановлення hasDefaultRoute
+                    if (yamlGateway != null || remoteGateway != null) {
+                        hasDefaultRoute = true;
+                    }
+
+                    // Генерація option 121 для YAML-пулу
                     List<String> poolNetworks = new ArrayList<>();
                     List<String> poolGateways = new ArrayList<>();
-                    // Додаємо default-gateway
-                    if (pool.getDefaultGateway() != null) {
+                    if (yamlPool.getDefaultGateway() != null) {
                         poolNetworks.add("0.0.0.0/0");
-                        poolGateways.add(pool.getDefaultGateway());
+                        poolGateways.add(yamlPool.getDefaultGateway());
                     }
-                    // Додаємо common-routes пулу
-                    for (Map<String, String> route : pool.getCommonRoutes()) {
-                        poolNetworks.add(route.get("network"));
-                        poolGateways.add(route.get("gateway"));
-                    }
-                    // Додаємо append-routes з global, якщо не відключено
-                    if (!pool.isDisableAppendRoutes() && !router.isDisableAppendRoutes()) {
-                        for (Map<String, String> route : globalConfig.getAppendRoutes()) {
-                            poolNetworks.add(route.get("network"));
-                            poolGateways.add(route.get("gateway"));
+                    if (yamlPool.getCommonRoutes() != null) {
+                        for (Map<String, String> route : yamlPool.getCommonRoutes()) {
+                            if (route != null && route.get("network") != null && route.get("gateway") != null) {
+                                poolNetworks.add(route.get("network"));
+                                poolGateways.add(route.get("gateway"));
+                            }
                         }
                     }
+                    if (!yamlPool.isDisableAppendRoutes() && !router.isDisableAppendRoutes() && globalConfig.getAppendRoutes() != null) {
+                        for (Map<String, String> route : globalConfig.getAppendRoutes()) {
+                            if (route != null && route.get("network") != null && route.get("gateway") != null) {
+                                poolNetworks.add(route.get("network"));
+                                poolGateways.add(route.get("gateway"));
+                            }
+                        }
+                    }
+                    String yamlOption121 = "";
                     if (!poolNetworks.isEmpty()) {
-                        dhcpOptions.addAll(converter.generateDhcpOptions(
-                                poolNetworks, poolGateways, parser.isDebug(),
-                                parser.isWithWarningLoopback(), DhcpOptionConverter.Format.JUNOS,
-                                poolName, null));
+                        List<String> dhcpOptions = converter.generateDhcpOptions(poolNetworks, poolGateways, configArguments.isWithWarningLoopback(),
+                                DhcpOptionConverter.Format.JUNOS, poolName, null);
+                        for (String option : dhcpOptions) {
+                            if (option.contains("option 121 hex-string")) {
+                                yamlOption121 = option.replaceAll(".*option 121 hex-string (\\w+).*", "$1");
+                                break;
+                            }
+                        }
+                    }
+                    if (configArguments.isDebug()) {
+                        System.err.println("DEBUG: Pool " + poolName + " on router " + router.getName() + ":");
+                        System.err.println("  YAML default-gateway: " + (yamlGateway != null ? yamlGateway : "null"));
+                        System.err.println("  Remote default-gateway: " + (remoteGateway != null ? remoteGateway : "null"));
+                        System.err.println("  YAML option 121: " + (yamlOption121.isEmpty() ? "empty" : yamlOption121));
+                        System.err.println("  Remote option 121: " + (remoteOption121 != null ? remoteOption121 : "null"));
+                    }
+                    boolean gatewayMismatch = false;
+                    if (remoteGateway != null && !remoteGateway.isEmpty()) {
+                        if (yamlGateway == null || !remoteGateway.equals(yamlGateway)) {
+                            gatewayMismatch = true;
+                        }
+                    } else {
+                        logWarning("Pool " + poolName + " on router " + router.getName() + " has no default-gateway in NETCONF response", configArguments);
+                    }
+                    boolean option121Mismatch = (remoteOption121 != null && !remoteOption121.isEmpty() && !remoteOption121.equals(yamlOption121))
+                            || (!yamlOption121.isEmpty() && (remoteOption121 == null || remoteOption121.isEmpty()));
+                    if (option121Mismatch) {
+                        logWarning("Pool " + poolName + " on router " + router.getName() + ": option 121 mismatch, updating from "
+                                + (yamlOption121.isEmpty() ? "empty" : yamlOption121) + " to " + (remoteOption121 != null ? remoteOption121 : "empty"), configArguments);
+                    }
+                    if (gatewayMismatch || option121Mismatch) {
+                        if (configArguments.isDebug()) {
+                            System.err.println("INFO: Proposed update for pool " + poolName + " on router " + router.getName() + ":");
+                        }
+                        if (gatewayMismatch) {
+                            logWarning("Pool " + poolName + " on router " + router.getName() + ": default-gateway mismatch, updating from "
+                                    + (yamlGateway != null ? yamlGateway : "null") + " to " + remoteGateway, configArguments);
+                            yamlPool.setDefaultGateway(remoteGateway);
+                        }
+                        if (option121Mismatch && configArguments.isDebug()) {
+                            System.err.println("  option 121 from " + (yamlOption121.isEmpty() ? "empty" : yamlOption121) + " to " + (remoteOption121 != null ? remoteOption121 : "empty"));
+                        }
+                        deviceConfig.addPool(poolName, remotePool);
+                        updatedPools.add(new PoolUpdate(router.getName(), poolName));
+                    } else if (configArguments.isDebug()) {
+                        System.err.println("DEBUG: No changes needed for pool " + poolName + " on router " + router.getName() + ": configurations match");
+                    }
+                } else {
+                    logWarning("Pool " + poolName + " on router " + router.getName()
+                            + " is not defined in configuration file " + configArguments.getConfigFile(), configArguments);
+                }
+            }
+        }
+
+        // Встановлюємо hasDefaultRoute у converter після перевірки всіх пулів
+        if (hasDefaultRoute) {
+            try {
+                // Використовуємо рефлексію для встановлення приватного поля hasDefaultRoute
+                java.lang.reflect.Field field = DhcpOptionConverter.class.getDeclaredField("hasDefaultRoute");
+                field.setAccessible(true);
+                field.set(converter, true);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                logError("Failed to set hasDefaultRoute: " + e.getMessage());
+            }
+        }
+    }
+
+    private static List<String> generateDhcpOptions(List<RouterConfig> routers, ArgumentParser configArguments) {
+        //converter = new DhcpOptionConverter(parseArguments);
+        List<String> dhcpOptions = new ArrayList<>();
+
+        if (configArguments.isNetconfRead()) {
+            if (updatedPools != null && !updatedPools.isEmpty()) {
+                // Create a map for faster router lookup
+//            Map<String, RouterConfig> routerMap = routers.stream()
+//                    .collect(Collectors.toMap(
+//                            RouterConfig::getName,
+//                            r -> r,
+//                            (r1, r2) -> r1 // Використовувати перший роутер у разі дублікату
+//                    ));
+                Map<String, RouterConfig> routerMap = routers.stream()
+                        .collect(Collectors.toMap(
+                                RouterConfig::getName, r -> r
+                        ));
+
+                // Генеруємо опції лише для оновлених пулів
+                for (PoolUpdate update : updatedPools) {
+                    RouterConfig router = routerMap.get(update.routerName);
+                    if (router == null) {
+                        logError("Router " + update.routerName + " not found for updated pool " + update.poolName);
+                        continue;
+                    }
+                    PoolConfig pool = router.getPools().get(update.poolName);
+                    if (pool == null) {
+                        logError("Pool " + update.poolName + " not found in router " + update.routerName);
+                        continue;
+                    }
+                    dhcpOptions.addAll(generatePoolDhcpOptions(router, pool, update.poolName, configArguments));
+                }
+            }
+        } else {
+            if (routers != null && !routers.isEmpty()) {
+                for (RouterConfig router : routers) {
+                    if (router.getPools() == null) {
+                        logError("Pools map is null for router " + router.getName());
+                        continue;
+                    }
+                    for (Map.Entry<String, PoolConfig> entry : router.getPools().entrySet()) {
+                        String poolName = entry.getKey();
+                        PoolConfig pool = entry.getValue();
+                        if (pool == null) {
+                            logError("Pool config is null for pool " + poolName + " on router " + router.getName());
+                            continue;
+                        }
+                        dhcpOptions.addAll(generatePoolDhcpOptions(router, pool, poolName, configArguments));
                     }
                 }
             }
-            outputOptions(dhcpOptions, parser, converter);
-        } catch (Exception e) {
-            System.err.println("ERROR: Failed to load config: " + e.getMessage());
         }
+        return dhcpOptions;
+    }
+
+    private static List<String> generatePoolDhcpOptions(RouterConfig router, PoolConfig pool, String poolName, ArgumentParser configArguments) {
+        List<String> poolNetworks = new ArrayList<>();
+        List<String> poolGateways = new ArrayList<>();
+
+        if (pool.getDefaultGateway() != null) {
+            poolNetworks.add("0.0.0.0/0");
+            poolGateways.add(pool.getDefaultGateway());
+        }
+        if (pool.getCommonRoutes() != null) {
+            for (Map<String, String> route : pool.getCommonRoutes()) {
+                if (route != null && route.get("network") != null && route.get("gateway") != null) {
+                    poolNetworks.add(route.get("network"));
+                    poolGateways.add(route.get("gateway"));
+                } else if (configArguments.isDebug()) {
+                    System.err.println("DEBUG: Skipping invalid common route for pool " + poolName + " on router " + router.getName());
+                }
+            }
+        }
+        if (!pool.isDisableAppendRoutes() && !router.isDisableAppendRoutes() && globalConfig.getAppendRoutes() != null) {
+            for (Map<String, String> route : globalConfig.getAppendRoutes()) {
+                if (route != null && route.get("network") != null && route.get("gateway") != null) {
+                    poolNetworks.add(route.get("network"));
+                    poolGateways.add(route.get("gateway"));
+                } else if (configArguments.isDebug()) {
+                    System.err.println("DEBUG: Skipping invalid append route for pool " + poolName + " on router " + router.getName());
+                }
+            }
+        }
+
+        List<String> dhcpOptions = new ArrayList<>();
+        if (!poolNetworks.isEmpty()) {
+            if (configArguments.isDebug()) {
+                System.err.println("DEBUG: Generating DHCP options for pool " + poolName + " on router " + router.getName() + ": networks=" + poolNetworks);
+            }
+            dhcpOptions.addAll(converter.generateDhcpOptions(poolNetworks, poolGateways, configArguments.isWithWarningLoopback(),
+                    DhcpOptionConverter.Format.JUNOS,
+                    poolName, null));
+        }
+        return dhcpOptions;
+    }
+
+    /**
+     * Utility method for debug logging.
+     *
+     * @param message Message to log.
+     * @param configArguments Argument parseArguments to check debug mode.
+     */
+    private static void logDebug(String message, ArgumentParser configArguments) {
+        if (configArguments.isDebug()) {
+            System.err.println("DEBUG: " + message);
+        }
+    }
+
+    /**
+     * Utility method for warning logging.
+     *
+     * @param message Message to log.
+     * @param configArguments Argument parseArguments to check debug mode and print
+ option.
+     */
+    private static void logWarning(String message, ArgumentParser configArguments) {
+        if (configArguments.isDebug() || configArguments.isPrintMissingPools()) {
+            System.err.println("WARNING: " + message);
+        }
+    }
+
+    /**
+     * Utility method for error logging.
+     *
+     * @param message Message to log.
+     */
+    private static void logError(String message) {
+        System.err.println("ERROR: " + message);
     }
 
     /**
@@ -206,7 +556,7 @@ public class Main {
         RouterConfig router = new RouterConfig();
         router.setName("default-router");
         Map<String, PoolConfig> pools = new HashMap<>();
-        String[] poolPairs = parser.getAddDefaultMultiPool().split(",");
+        String[] poolPairs = parseArguments.getAddDefaultMultiPool().split(",");
         for (String poolPair : poolPairs) {
             String[] parts = poolPair.split(":");
             if (parts.length != 2) {
@@ -231,7 +581,7 @@ public class Main {
         }
         router.setPools(pools);
         routers.add(router);
-        converter = new DhcpOptionConverter();
+        converter = new DhcpOptionConverter(null);
         List<String> dhcpOptions = new ArrayList<>();
         for (RouterConfig r : routers) {
             for (Map.Entry<String, PoolConfig> entry : r.getPools().entrySet()) {
@@ -248,33 +598,32 @@ public class Main {
                     poolGateways.add(route.get("gateway"));
                 }
                 if (!poolNetworks.isEmpty()) {
-                    dhcpOptions.addAll(converter.generateDhcpOptions(
-                            poolNetworks, poolGateways, parser.isDebug(),
-                            parser.isWithWarningLoopback(), DhcpOptionConverter.Format.JUNOS,
+                    dhcpOptions.addAll(converter.generateDhcpOptions(poolNetworks, poolGateways, parseArguments.isWithWarningLoopback(),
+                            DhcpOptionConverter.Format.JUNOS,
                             poolName, null));
                 }
             }
         }
-        outputOptions(dhcpOptions, parser, converter);
+        outputOptions(dhcpOptions, parseArguments, converter);
     }
 
     /**
      * Processes network/gateway pairs from command-line arguments.
      */
     private static void proceedEmpty() {
-        converter = new DhcpOptionConverter();
-        List<String> dhcpOptions = converter.generateDhcpOptions(networks, gateways, parser.isDebug(),
-                parser.isWithWarningLoopback(), DhcpOptionConverter.Format.valueOf(parser.getFormat().toUpperCase()),
-                parser.getJunosPoolName(), parser.getCiscoPoolName());
-        outputOptions(dhcpOptions, parser, converter);
+        converter = new DhcpOptionConverter(parseArguments);
+        List<String> dhcpOptions = converter.generateDhcpOptions(networks, gateways,
+                parseArguments.isWithWarningLoopback(), DhcpOptionConverter.Format.valueOf(parseArguments.getFormat().toUpperCase()),
+                parseArguments.getJunosPoolName(), parseArguments.getCiscoPoolName());
+        outputOptions(dhcpOptions, parseArguments, converter);
     }
 
     /**
      * Parses a hexadecimal DHCP option string into network/gateway pairs.
      */
     private static void proceedFromDhcpOptions() {
-        converter = new DhcpOptionConverter();
-        List<String> routes = converter.parseDhcpOptions(parser.getFromDhcpOptions());
+        converter = new DhcpOptionConverter(parseArguments);
+        List<String> routes = converter.parseDhcpOptions(parseArguments.getFromDhcpOptions());
         for (String route : routes) {
             System.out.println("Route: " + route);
         }
@@ -316,6 +665,11 @@ public class Main {
         System.out.println("      Process routes from a YAML configuration file. Cannot be used with --add-default-multi-pool,");
         System.out.println("      --add-default-gateway, or --common-routes.");
         System.out.println("      Example: DhcpRouteConverter --config=routers.yaml");
+        System.out.println();
+        System.out.println("  --print");
+        System.out.println("      Print all warning messages, including those about pools not defined in the YAML configuration file, even if --debug is not enabled.");
+        System.out.println("      Useful for diagnosing configuration mismatches or missing settings.");
+        System.out.println("      Example: DhcpRouteConverter --config=routers.yaml --print");
         System.out.println();
         System.out.println("  --common-routes=<network1,gateway1,...>");
         System.out.println("      Add common routes to be included in the output. Must be used with --to-dhcp-options or");
@@ -371,5 +725,17 @@ public class Main {
         System.out.println();
         System.out.println("  # Process a YAML configuration with both options");
         System.out.println("  DhcpRouteConverter --config=routers.yaml --with-option-249");
+    }
+
+    // Внутрішній клас для зберігання інформації про оновлені пули
+    private static class PoolUpdate {
+
+        String routerName;
+        String poolName;
+
+        PoolUpdate(String routerName, String poolName) {
+            this.routerName = routerName;
+            this.poolName = poolName;
+        }
     }
 }
