@@ -18,6 +18,7 @@ package net.ukrcom.dhcprouteconverter.outputFormat;
 import java.util.ArrayList;
 import java.util.List;
 import net.ukrcom.dhcprouteconverter.ApplyMethod;
+import net.ukrcom.dhcprouteconverter.ArgumentParser;
 
 /**
  *
@@ -29,8 +30,8 @@ public class DEFAULT extends outputFormatAbstract implements outputFormatInterfa
         super(aggregateHex, withOption249, poolName);
     }
 
-    public DEFAULT(String config, String username, String password, ApplyMethod method) {
-        super(config, username, password, method);
+    public DEFAULT(String config, String username, String password, ApplyMethod method, ArgumentParser parser) {
+        super(config, username, password, method, parser);
     }
 
     /**

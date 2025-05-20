@@ -1,0 +1,14 @@
+<Configuration status="OFF" disableAnsi="true" packages="">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_ERR">
+            <PatternLayout pattern="%msg%n" disableAnsi="true"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="OFF">
+            <AppenderRef ref="Console"/>
+        </Root>
+        <Logger name="com.github.mwiede.jsch" level="OFF"/>
+        <Logger name="org.apache.logging.log4j" level="OFF"/>
+    </Loggers>
+</Configuration>

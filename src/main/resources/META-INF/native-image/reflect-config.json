@@ -1,20 +1,282 @@
 [
     {
-        "name": "net.ukrcom.dhcprouteconverter.GlobalConfig",
-        "allDeclaredFields": true,
-        "allDeclaredConstructors": true,
-        "allPublicMethods": true
+        "name": "com.jcraft.jsch.DH25519",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
     },
     {
-        "name": "net.ukrcom.dhcprouteconverter.RouterConfig",
-        "allDeclaredFields": true,
-        "allDeclaredConstructors": true,
-        "allPublicMethods": true
+        "name": "com.jcraft.jsch.DH25519MLKEM768",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
     },
     {
-        "name": "net.ukrcom.dhcprouteconverter.PoolConfig",
-        "allDeclaredFields": true,
+        "name": "com.jcraft.jsch.DH25519SNTRUP761",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.DH448",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.DHEC256",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.DHEC256MLKEM768",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.DHEC384MLKEM1024",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.UserAuthKeyboardInteractive",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.UserAuthNone",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.UserAuthPublicKey",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.bc.MLKEM1024"
+    },
+    {
+        "name": "com.jcraft.jsch.bc.MLKEM768"
+    },
+    {
+        "name": "com.jcraft.jsch.bc.SNTRUP761"
+    },
+    {
+        "name": "com.jcraft.jsch.bc.SignatureEd25519"
+    },
+    {
+        "name": "com.jcraft.jsch.bc.SignatureEd448"
+    },
+    {
+        "name": "com.jcraft.jsch.bc.XDH",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.jce.AES128GCM",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.jce.ECDHN",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.jce.HMACSHA1",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.jce.Random",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.jce.SHA256",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.jce.SHA384",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.jce.SHA512",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.jcraft.jsch.jce.SignatureECDSA256",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.sun.crypto.provider.GaloisCounterMode$AESGCM",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.sun.org.apache.xalan.internal.xsltc.trax.TransformerFactoryImpl",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.sun.org.apache.xml.internal.utils.FastStringBuffer",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.sun.org.apache.xpath.internal.functions.FuncLocalPart",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "com.sun.org.apache.xpath.internal.functions.FuncNamespace",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "java.lang.Thread",
+        "fields": [{
+                "name": "threadLocalRandomProbe"
+            }]
+    },
+    {
+        "name": "java.security.AlgorithmParametersSpi"
+    },
+    {
+        "name": "java.security.SecureRandomParameters"
+    },
+    {
+        "name": "java.security.interfaces.ECPrivateKey"
+    },
+    {
+        "name": "java.security.interfaces.ECPublicKey"
+    },
+    {
+        "name": "java.util.concurrent.atomic.Striped64",
+        "fields": [{
+                "name": "base"
+            }, {
+                "name": "cellsBusy"
+            }]
+    },
+    {
+        "name": "sun.security.provider.NativePRNG",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }, {
+                "name": "<init>",
+                "parameterTypes": ["java.security.SecureRandomParameters"]
+            }]
+    },
+    {
+        "name": "sun.security.provider.SHA",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "sun.security.provider.SHA2$SHA256",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "sun.security.provider.SHA5$SHA384",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+    {
+        "name": "sun.security.provider.SHA5$SHA512",
+        "methods": [{
+                "name": "<init>",
+                "parameterTypes": []
+            }]
+    },
+
+    {
+        "name": "org.bouncycastle.crypto.params.X25519PrivateKeyParameters",
         "allDeclaredConstructors": true,
-        "allPublicMethods": true
+        "allPublicMethods": true,
+        "allDeclaredFields": true
+    },
+    {
+        "name": "org.bouncycastle.crypto.params.X25519PublicKeyParameters",
+        "allDeclaredConstructors": true,
+        "allPublicMethods": true,
+        "allDeclaredFields": true
+    },
+    {
+        "name": "org.bouncycastle.crypto.params.X448PrivateKeyParameters",
+        "allDeclaredConstructors": true,
+        "allPublicMethods": true,
+        "allDeclaredFields": true
+    },
+    {
+        "name": "org.bouncycastle.crypto.params.X448PublicKeyParameters",
+        "allDeclaredConstructors": true,
+        "allPublicMethods": true,
+        "allDeclaredFields": true
     }
+
 ]

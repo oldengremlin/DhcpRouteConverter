@@ -26,15 +26,15 @@ import java.util.regex.Pattern;
 public class DhcpOptionConverter {
 
     private boolean hasDefaultRoute;
-    private boolean debugMode;
+    private final ArgumentParser globalOptions;
 
     public enum Format {
         DEFAULT, ISC, ROUTEROS, JUNOS, CISCO, WINDOWS
     }
 
-    public DhcpOptionConverter() {
-        this.debugMode = false;
+    public DhcpOptionConverter(ArgumentParser globalOptions) {
         this.hasDefaultRoute = false;
+        this.globalOptions = globalOptions;
     }
 
     /**
@@ -42,17 +42,14 @@ public class DhcpOptionConverter {
      *
      * @param networks List of networks (e.g., "192.168.1.0/24", "0.0.0.0/0").
      * @param gateways List of gateways (e.g., "10.0.0.1").
-     * @param debugMode If true, outputs debug information.
      * @param withOption249 If true, includes option 249 (Microsoft-specific).
      * @param format Output format (e.g., ISC, JUNOS).
      * @param junosPoolName Pool name for JunOS format.
      * @param ciscoPoolName Pool name for Cisco format.
      * @return List of formatted DHCP option strings.
      */
-    public List<String> generateDhcpOptions(List<String> networks, List<String> gateways, boolean debugMode,
+    public List<String> generateDhcpOptions(List<String> networks, List<String> gateways,
             boolean withOption249, Format format, String junosPoolName, String ciscoPoolName) {
-
-        this.debugMode = debugMode;
 
         if (networks.size() != gateways.size()) {
             System.err.println("ERROR: Mismatch between networks and gateways count");
@@ -71,7 +68,7 @@ public class DhcpOptionConverter {
             return new ArrayList<>();
         }
 
-        if (this.debugMode) {
+        if (globalOptions.isDebug()) {
             System.out.println("DEBUG: Generated hex string: " + aggregateHex);
         }
 
@@ -113,6 +110,12 @@ public class DhcpOptionConverter {
             hasDefaultRoute = true;
         }
 
+        // Перевірка loopback-адреси
+        if (globalOptions.isWithWarningLoopback() && gateway.startsWith("127.")) {
+            System.err.println("WARNING: Gateway " + gateway + " is in loopback range (127.0.0.0/8)");
+            return "";
+        }
+
         // Parse gateway
         Pattern ipPattern = Pattern.compile("^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$");
         matcher = ipPattern.matcher(gateway);
@@ -135,7 +138,7 @@ public class DhcpOptionConverter {
             }
         }
 
-        if (this.debugMode) {
+        if (globalOptions.isDebug()) {
             // Debug: Log network and gateway parsing
             System.out.println("DEBUG: Parsing network: " + network + ", gateway: " + gateway);
             System.out.println("DEBUG: Gateway octets: " + Arrays.toString(gatewayOctets));
@@ -166,7 +169,7 @@ public class DhcpOptionConverter {
             hex.append(String.format("%02x", octet));
         }
 
-        if (this.debugMode) {
+        if (globalOptions.isDebug()) {
             // Debug: Log generated hex
             System.out.println("DEBUG: Generated hex for route: " + hex);
         }

@@ -16,8 +16,13 @@
 package net.ukrcom.dhcprouteconverter.outputFormat;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.ukrcom.dhcprouteconverter.ApplyMethod;
+import net.ukrcom.dhcprouteconverter.ArgumentParser;
+import net.ukrcom.dhcprouteconverter.PoolDeviceConfig;
+import net.ukrcom.dhcprouteconverter.RouterDeviceConfig;
 
 /**
  *
@@ -35,6 +40,8 @@ public abstract class outputFormatAbstract implements outputFormatInterface {
     protected String username;
     protected String password;
     protected ApplyMethod method;
+
+    protected ArgumentParser globalOptions;
 
     /**
      * Constructor for formatDhcpOptions
@@ -57,11 +64,12 @@ public abstract class outputFormatAbstract implements outputFormatInterface {
      * @param password Password for authentication.
      * @param method Application method.
      */
-    outputFormatAbstract(String config, String username, String password, ApplyMethod method) {
+    outputFormatAbstract(String config, String username, String password, ApplyMethod method, ArgumentParser parser) {
         this.config = config;
         this.username = username;
         this.password = password;
         this.method = method;
+        this.globalOptions = parser;
     }
 
     /**
@@ -79,14 +87,16 @@ public abstract class outputFormatAbstract implements outputFormatInterface {
     }
 
     /**
-     * Get configuration from devices.
+     * Get configuration of pool's from devices.
      *
+     * @param routerName
+     * @param deviceConfig
      * @return
      */
     @Override
-    public List<String> getConfig() {
-        System.err.println("[outputFormatAbstract.getConfig]");
-        return null;
+    public Map<String, PoolDeviceConfig> getConfig(String routerName, RouterDeviceConfig deviceConfig) {
+        System.err.println("[outputFormatAbstract.getAllPools] Not implemented for " + routerName);
+        return new HashMap<>();
     }
 
     /**

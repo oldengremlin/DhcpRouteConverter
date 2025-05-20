@@ -95,37 +95,39 @@ public class OutputFormatter {
      * @param password Password for authentication.
      * @param format Output format (e.g., ISC, JUNOS, CISCO).
      * @param method Application method.
+     * @param parser Global Arguments
      */
-    public void getConfig(String config, String username, String password, Format format, ApplyMethod method) {
+    public void getConfig(String config, String username, String password, Format format, ApplyMethod method, ArgumentParser parser) {
 
         net.ukrcom.dhcprouteconverter.outputFormat.outputFormatInterface of = null;
 
         switch (format) {
             case DEFAULT -> {
-                of = new DEFAULT(config, username, password, method);
+                of = new DEFAULT(config, username, password, method, parser);
             }
             case ISC -> {
-                of = new ISC(config, username, password, method);
+                of = new ISC(config, username, password, method, parser);
             }
             case ROUTEROS -> {
-                of = new ROUTEROS(config, username, password, method);
+                of = new ROUTEROS(config, username, password, method, parser);
             }
             case JUNOS -> {
-                of = new JUNOS(config, username, password, method);
+                of = new JUNOS(config, username, password, method, parser);
             }
             case CISCO -> {
-                of = new CISCO(config, username, password, method);
+                of = new CISCO(config, username, password, method, parser);
             }
             case WINDOWS -> {
-                of = new WINDOWS(config, username, password, method);
+                of = new WINDOWS(config, username, password, method, parser);
             }
             default ->
                 throw new AssertionError("Unknown format: " + format);
         }
-
+        /*
         if (of != null) {
             List<String> currentConfig = of.getConfig();
         }
+         */
     }
 
     /**
@@ -137,28 +139,28 @@ public class OutputFormatter {
      * @param format Output format (e.g., ISC, JUNOS, CISCO).
      * @param method Application method.
      */
-    public void applyConfig(String config, String username, String password, Format format, ApplyMethod method) {
+    public void applyConfig(String config, String username, String password, Format format, ApplyMethod method, ArgumentParser parser) {
 
         net.ukrcom.dhcprouteconverter.outputFormat.outputFormatInterface of = null;
 
         switch (format) {
             case DEFAULT -> {
-                of = new DEFAULT(config, username, password, method);
+                of = new DEFAULT(config, username, password, method, parser);
             }
             case ISC -> {
-                of = new ISC(config, username, password, method);
+                of = new ISC(config, username, password, method, parser);
             }
             case ROUTEROS -> {
-                of = new ROUTEROS(config, username, password, method);
+                of = new ROUTEROS(config, username, password, method, parser);
             }
             case JUNOS -> {
-                of = new JUNOS(config, username, password, method);
+                of = new JUNOS(config, username, password, method, parser);
             }
             case CISCO -> {
-                of = new CISCO(config, username, password, method);
+                of = new CISCO(config, username, password, method, parser);
             }
             case WINDOWS -> {
-                of = new WINDOWS(config, username, password, method);
+                of = new WINDOWS(config, username, password, method, parser);
             }
             default ->
                 throw new AssertionError("Unknown format: " + format);

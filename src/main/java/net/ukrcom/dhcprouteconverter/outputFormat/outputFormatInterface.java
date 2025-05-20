@@ -16,6 +16,9 @@
 package net.ukrcom.dhcprouteconverter.outputFormat;
 
 import java.util.List;
+import java.util.Map;
+import net.ukrcom.dhcprouteconverter.PoolDeviceConfig;
+import net.ukrcom.dhcprouteconverter.RouterDeviceConfig;
 
 /**
  *
@@ -31,14 +34,17 @@ public interface outputFormatInterface {
     public List<String> formatDhcpOptions();
 
     /**
-     * Get configuration from devices.
+     * Get configuration of pool's from devices.
      *
+     * @param routerName
+     * @param deviceConfig
      * @return
      */
-    public List<String> getConfig();
+    public Map<String, PoolDeviceConfig> getConfig(String routerName, RouterDeviceConfig deviceConfig);
 
     /**
      * Applies the configuration to a devices.
      */
     public void applyConfig();
+
 }

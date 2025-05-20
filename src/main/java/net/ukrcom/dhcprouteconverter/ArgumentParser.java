@@ -28,9 +28,11 @@ public class ArgumentParser {
     private String junosPoolName;
     private String ciscoPoolName;
     private boolean withOption249;
-    private final String[] args;
     private boolean getConfig;
     private boolean applyConfig;
+    private boolean read;
+    private boolean printMissingPools;
+    private final String[] args;
 
     public ArgumentParser(String[] args) {
         this.junosPoolName = "lan-pool";
@@ -39,6 +41,8 @@ public class ArgumentParser {
         this.withOption249 = false;
         this.getConfig = false;
         this.applyConfig = false;
+        this.read = false;
+        this.printMissingPools = false;
         this.args = args;
         parse();
     }
@@ -46,7 +50,11 @@ public class ArgumentParser {
     private void parse() {
         for (int i = 0; i < this.args.length; i++) {
             String arg = this.args[i];
-            if (arg.startsWith("--config=")) {
+            if (arg.equals("-d") || arg.equals("--debug")) { // Нова глобальна опція
+                debug = true;
+            } else if (arg.equals("--print")) {
+                printMissingPools = true;
+            } else if (arg.startsWith("--config=")) {
                 configFile = arg.substring("--config=".length());
             } else if (arg.startsWith("--add-default-multi-pool=")) {
                 addDefaultMultiPool = arg.substring("--add-default-multi-pool=".length());
@@ -67,12 +75,11 @@ public class ArgumentParser {
                 getConfig = true;
             } else if (arg.equals("--apply-config")) {
                 applyConfig = true;
+            } else if (arg.equals("--read")) {
+                read = true;
             } else if ((arg.equals("--to-dhcp-options") || arg.equals("-tdo"))) {
                 int argIndex = i + 1;
-                if (argIndex < this.args.length && this.args[argIndex].equals("-d")) {
-                    debug = true;
-                    argIndex++;
-                }
+                // Видалено перевірку на -d, бо вона тепер глобальна
                 if (argIndex < this.args.length) {
                     if (this.args[argIndex].equals("--isc")) {
                         format = "isc";
@@ -169,6 +176,14 @@ public class ArgumentParser {
 
     public boolean isApplyConfig() {
         return applyConfig;
+    }
+
+    public boolean isNetconfRead() {
+        return read;
+    }
+
+    public boolean isPrintMissingPools() {
+        return printMissingPools;
     }
 
     private void sayCommonRoutesError() {
