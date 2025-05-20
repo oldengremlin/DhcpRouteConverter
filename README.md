@@ -21,7 +21,8 @@ DhcpRouteConverter is a command-line utility for converting network routes to DH
 - Warning suppression for missing default route (`--without-warn-no-default-route`).
 - Warning for loopback gateways (`--with-warning-loopback`).
 - Optional inclusion of DHCP option 249 (`--with-option-249`).
-- Debug mode (`-d`) to display individual route options.
+- Enhanced debug mode (`-d`) with detailed logs for route conversion and NETCONF operations.
+- Improved NETCONF support for retrieving JunOS configurations, with full application support (`--apply-junos`) still in development.
 - Distributed as a `.deb` package for Debian-based systems.
 - Native binary with no Java runtime dependency.
 - Compatible with any 64-bit x86-64 processor (2003+).
@@ -35,7 +36,7 @@ DhcpRouteConverter is a command-line utility for converting network routes to DH
 1. Download the latest `.deb` package from the [Releases](https://github.com/oldengremlin/DhcpRouteConverter/releases) page.
 2. Install the package:
    ```bash
-   sudo dpkg -i DhcpRouteConverter_2.0.0_all.deb
+   sudo dpkg -i DhcpRouteConverter_3.0.0_all.deb
    ```
 3. Verify installation:
    ```bash
@@ -121,6 +122,28 @@ Run `DhcpRouteConverter` with the desired options and arguments. Use `-?` or `--
 
 ## Releases
 
+### v3.0.0
+- **Features**:
+  - Added enhanced debug logging for `DhcpOptionConverter` to trace route conversion and NETCONF operations (`-d` flag).
+  - Improved NETCONF configuration retrieval for JunOS devices with better error handling and debug output.
+  - Added support for consistent default route detection across multiple pool operations.
+- **Improvements**:
+  - Fixed issue with `hasDefaultRoute` being reset in `generateDhcpOptions` by reusing a single `DhcpOptionConverter` instance in `compareAndUpdatePools` and `generateDhcpOptions`.
+  - Optimized GraalVM native image configuration for better performance and reduced binary size.
+  - Updated dependencies in `pom.xml` for improved security and compatibility (e.g., `snakeyaml-engine`, `slf4j`, `jsch`).
+  - Enhanced input validation for YAML configurations to prevent crashes on malformed inputs.
+  - Improved error messages for invalid network or gateway formats.
+- **Fixes**:
+  - Resolved bug causing incorrect default route warnings due to `hasDefaultRoute` state loss.
+  - Fixed NETCONF connection issues with certain JunOS devices by updating SSH configuration.
+  - Corrected handling of empty or malformed hex strings in `parseDhcpOptions`.
+- **Tests**:
+  - Restored and expanded test suite with coverage for `DhcpOptionConverter`, `PoolConfig`, and NETCONF operations.
+  - Added tests for edge cases in route conversion and YAML parsing.
+- **Known Issues**:
+  - NETCONF support (`--apply-junos`) is still under development and may not work with all JunOS versions.
+  - Limited support for non-standard DHCP server configurations in `OutputFormatter`.
+
 ### v2.0.0
 - **Features**:
   - Added YAML configuration support (`--config`).
@@ -165,7 +188,7 @@ Run `DhcpRouteConverter` with the desired options and arguments. Use `-?` or `--
    mvn clean package
    ```
 
-4. Find the native binary at `target/DhcpRouteConverter` and the `.deb` package at `target/DhcpRouteConverter_2.0.0_all.deb`.
+4. Find the native binary at `target/DhcpRouteConverter` and the `.deb` package at `target/DhcpRouteConverter_3.0.0_all.deb`.
 
 ## License
 
