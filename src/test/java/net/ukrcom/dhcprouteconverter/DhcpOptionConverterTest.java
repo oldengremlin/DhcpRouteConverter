@@ -34,6 +34,7 @@ public class DhcpOptionConverterTest {
         assertEquals(2, routes.size(), "Expected two routes");
         assertTrue(routes.contains("192.168.1.0/24 via 10.0.0.1"), "Expected route 192.168.1.0/24 via 10.0.0.1");
         assertTrue(routes.contains("0.0.0.0/0 via 10.0.0.1"), "Expected default route 0.0.0.0/0 via 10.0.0.1");
+        assertTrue(routes.stream().anyMatch(route -> route.trim().equals("0.0.0.0/0 via 10.0.0.1")), "Expected default route 0.0.0.0/0 via 10.0.0.1");
     }
 
     @Test
