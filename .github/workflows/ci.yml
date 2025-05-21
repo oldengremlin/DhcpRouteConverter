@@ -29,26 +29,14 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
-    - name: Clone and build netconf-java
+    - name: Install netconf-java dependency
       run: |
-        # Клонуємо netconf-java
-        git clone https://github.com/Juniper/netconf-java.git
-        cd netconf-java
-        # Модифікуємо pom.xml
-        sed -i "s,com.jcraft,com.github.mwiede," pom.xml
-        sed -i "s,0\.1\.55,2.27.0," pom.xml
-        # Збираємо netconf-java
-        mvn clean package -DskipTests
-        # Визначаємо версію
-        VERSION=$(find ./target -name '*.jar' | head -1 | sed "s,^[^0-9]*,,;s,-.*\.jar$,,")
-        cp pom.xml ./target/netconf-java-${VERSION}.pom
-        # Встановлюємо артефакт у локальний Maven-репозиторій
         mvn install:install-file \
-          -Dfile=target/netconf-java-${VERSION}.jar \
-          -DpomFile=target/netconf-java-${VERSION}.pom \
+          -Dfile=lib/netconf-java-2.1.1.7.jar \
+          -DpomFile=lib/netconf-java-2.1.1.7.pom \
           -DgroupId=net.juniper.netconf \
           -DartifactId=netconf-java \
-          -Dversion=${VERSION} \
+          -Dversion=2.1.1.7 \
           -Dpackaging=jar
 
     - name: Run tests and build
