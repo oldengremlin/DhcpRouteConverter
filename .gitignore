@@ -29,6 +29,7 @@ hs_err_pid*
 replay_pid*
 /target/
 routers.yaml
+routers.test.yaml
 make-source.sh
 make-actions.sh
 .env
