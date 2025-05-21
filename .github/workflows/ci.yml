@@ -29,6 +29,28 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
+    - name: Clone and build netconf-java
+      run: |
+        # Клонуємо netconf-java
+        git clone https://github.com/Juniper/netconf-java.git
+        cd netconf-java
+        # Модифікуємо pom.xml
+        sed -i "s,com.jcraft,com.github.mwiede," pom.xml
+        sed -i "s,0\.1\.55,2.27.0," pom.xml
+        # Збираємо netconf-java
+        mvn clean package -DskipTests
+        # Визначаємо версію
+        VERSION=$(find ./target -name '*.jar' | head -1 | sed "s,^[^0-9]*,,;s,-.*\.jar$,,")
+        cp pom.xml ./target/netconf-java-${VERSION}.pom
+        # Встановлюємо артефакт у локальний Maven-репозиторій
+        mvn install:install-file \
+          -Dfile=target/netconf-java-${VERSION}.jar \
+          -DpomFile=target/netconf-java-${VERSION}.pom \
+          -DgroupId=net.juniper.netconf \
+          -DartifactId=netconf-java \
+          -Dversion=${VERSION} \
+          -Dpackaging=jar
+
     - name: Run tests and build
       run: mvn clean package
 
@@ -44,4 +66,3 @@ jobs:
         name: DhcpRouteConverter-deb
         path: target/DhcpRouteConverter_*.deb
         if-no-files-found: error
-
