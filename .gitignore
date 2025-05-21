@@ -24,8 +24,11 @@
 *.bak
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+*.deb
 hs_err_pid*
 replay_pid*
 /target/
 routers.yaml
 make-source.sh
+make-actions.sh
+.env
